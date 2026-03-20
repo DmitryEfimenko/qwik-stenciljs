@@ -90,7 +90,13 @@ export async function resolveStencilInnerContent(
   const renderedChildren = await tagRenderQrl!
     .resolve()
     .then((renderFn) => renderFn());
-  // return jsxChildrenToHtml(renderedChildren);
+
+  // renderToString returns full Qwik container, which is not desired
+  // for our use case since that container would be a separate
+  // island that would not have access to parent container's state.
+  // thus the usage of `normalizeQwikFragmentHtml` below, which is
+  // a hacky workaround that does not full work. The button in the demo
+  // now reacts to the state changes, but click handler does not work
   const result = await renderToString(renderedChildren, {
     containerTagName: 'div',
     manifest,

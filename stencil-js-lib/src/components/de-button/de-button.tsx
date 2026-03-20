@@ -3,7 +3,7 @@ import { Component, Prop, h } from '@stencil/core';
 
 @Component({
   tag: 'de-button',
-  styleUrl: 'de-button.css',
+  styleUrl: 'de-button.scss',
   shadow: false,
 })
 export class DeButton {

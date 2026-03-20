@@ -4,8 +4,6 @@
  */
 import { qwikCity } from "@builder.io/qwik-city/vite";
 import { qwikVite, QwikVitePluginApi } from "@builder.io/qwik/optimizer";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { defineConfig, type UserConfig } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 import pkg from "./package.json";
@@ -23,14 +21,6 @@ errorOnDuplicatesPkgDeps(devDependencies, dependencies);
  */
 export default defineConfig(({ command, mode }): UserConfig => {
   let qwikApi: QwikVitePluginApi;
-  const appRoot = dirname(fileURLToPath(import.meta.url));
-
-  // npm link points to a real path outside qwik-app; allow only the needed stencil outputs.
-  const linkedStencilAllowList = [
-    appRoot,
-    resolve(appRoot, "../stencil-js-lib/dist"),
-    resolve(appRoot, "../stencil-js-lib/loader"),
-  ];
   
   return {
     plugins: [
@@ -61,8 +51,7 @@ export default defineConfig(({ command, mode }): UserConfig => {
     optimizeDeps: {
       // Put problematic deps that break bundling here, mostly those with binaries.
       // For example ['better-sqlite3'] if you use that in server functions.
-      // Keep Stencil loader behavior intact (it uses dynamic relative imports).
-      exclude: ["stencil-js-lib/loader"],
+      exclude: [],
     },
 
     /**
@@ -83,9 +72,6 @@ export default defineConfig(({ command, mode }): UserConfig => {
     //     : undefined,
 
     server: {
-      fs: {
-        allow: linkedStencilAllowList,
-      },
       headers: {
         // Don't cache the server response in dev mode
         "Cache-Control": "public, max-age=0",

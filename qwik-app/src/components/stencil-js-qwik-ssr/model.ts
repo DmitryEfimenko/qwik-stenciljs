@@ -28,7 +28,7 @@ export type StencilRenderToString = (
 export interface StencilSSRProps {
   tagName: string;
   // tagContent?: string;
-  tagRender?: QRL<() => JSXNode>;
+  tagContent?: QRL<() => JSXNode>;
   props: Record<string, unknown>;
   [key: string]: unknown;
 }

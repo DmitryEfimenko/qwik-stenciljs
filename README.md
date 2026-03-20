@@ -1,56 +1,56 @@
-## Get Everything ready:
+## Qwik + Stencil SSR - Demo of the issue
 
-### StencilJS Lib:
+For the purposes of the demo, a locally-build StencilJS lib is used. The Qwik app uses copied Stencil runtime files from `stencil-js-lib` outputs to avoid difficulties associated with `npm link`.
+
+The issue is described on the running Qwik page and the Github issue.
+
+## To run locally
+
+### Build Stencil assets
 ```sh
 cd stencil-js-lib
 npm i
 npm run build
-npm link
 ```
 
-### Qwik app
+### Run Qwik app
 ```sh
 cd ../qwik-app
 npm i
-npm run link-stencil-lib
 npm run preview
 ```
 
-`qwik-app` scripts now sync local Stencil lazy chunks from
-`../stencil-js-lib/dist/esm` into `qwik-app/public/stencil/esm` before `dev`,
-`build`, and `preview`. This prevents preview 404s such as
-`/build/de-button.entry.js` by loading chunks from `/stencil/esm/`.
+`dev`, `build`, and `preview` automatically run `sync:stencil-assets`, which copies
+files with `qwik-app/scripts/sync-stencil-assets.ts`.
 
-Or run the link step directly:
+The sync script copies:
+1. `../stencil-js-lib/dist/esm` -> `qwik-app/public/stencil-runtime/esm`
+2. `../stencil-js-lib/hydrate` -> `qwik-app/public/stencil-runtime/hydrate`
+
+## Preview
+
+Use of `dev` does not work due to the need to have access to the manifest via `import { manifest } from '@qwik-client-manifest';`. So use `preview`. Maybe that can somehow be improved as well, but not a priority.
 
 ```sh
-npm link stencil-js-lib
+npm run preview
 ```
 
-Use the package name from `stencil-js-lib/package.json` in your imports:
+Preview runs on port `4173` (`--strictPort`).
 
-```ts
-import { defineCustomElements } from 'stencil-js-lib/loader';
-```
+## How the demo works
 
-## Linked Dev Troubleshooting
+1. Client-side web components load from `/stencil-runtime/esm/loader.js`.
+2. Stencil lazy chunks load from `/stencil-runtime/esm/*.js`.
+3. SSR demo rendering uses copied hydrate runtime files from `public/stencil-runtime/hydrate`.
 
-If Qwik dev/preview shows 403 for a request like:
-
-`/@fs/C:/.../stencil-js-lib/dist/esm/de-button.entry.js`
-
-that means Vite is blocking files outside `qwik-app` root. This repo's
-`qwik-app/vite.config.ts` includes a scoped allowlist for linked Stencil output.
-
-After changing Stencil component code, rebuild and relink:
+## When you change Stencil components
 
 ```sh
 cd stencil-js-lib
 npm run build
-npm link
 
 cd ../qwik-app
-npm link stencil-js-lib
-npm run sync:stencil-esm
-npm run dev
+npm run preview
 ```
+
+The Qwik scripts will resync copied assets automatically.

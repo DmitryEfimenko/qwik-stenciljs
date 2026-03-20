@@ -1,37 +1,71 @@
-import { $, component$, useVisibleTask$ } from "@builder.io/qwik";
+import { $, component$, useSignal, useVisibleTask$ } from "@builder.io/qwik";
 import type { DocumentHead } from "@builder.io/qwik-city";
+import { defineCustomElements } from '../components/stencil-js-utils';
 import { StencilLibSSR } from '../components/stencil-lib-ssr';
 
 
 export default component$(() => {
+  const size = useSignal<'md' | 'lg'>('md');
+
   // eslint-disable-next-line qwik/no-use-visible-task
   useVisibleTask$(async () => {
-    const stencilLoaderUrl = '/stencil/esm/loader.js';
-    const { defineCustomElements } = await import(
-      /* @vite-ignore */ stencilLoaderUrl
-    );
-    await defineCustomElements(undefined, {
-      resourcesUrl: '/stencil/esm/',
-    });
+    await defineCustomElements();
   });
 
-  const ssrButtonText = $(() => <>Rendered via stencil-js-lib/hydrate</>);
+  const ssrButtonText$ = $(() => <>Rendered via SSR</>);
+
+  const changeSize$ = $(() => {
+    size.value = size.value === 'md' ? 'lg' : 'md';
+  });
+
+  const alertContent$ = $(() => (
+    <StencilLibSSR
+      tagName='de-button'
+      tagContent={ssrButtonText$}
+      props={{ size: size.value }}
+      onClick$={changeSize$}
+    />
+  ));
   
   return (
     <>
       <div>
-        <p>Client-side rendered (local stencil-js-lib):</p>
-        <de-button size="lg">Get Started</de-button>
+        <p>
+          Client-side rendered.<br />
+          Click handler toggles size on all buttons on the page.
+        </p>
+
+        <de-button size={size.value} onClick$={changeSize$}>Rendered via CSR</de-button>
       </div>
 
       <hr />
 
       <div>
-        <p>Server-side rendered (stencil-js-lib/hydrate):</p>
+        <p>
+          Server-side rendered (check Network request response to verify).<br />
+          Click handler toggles size on all buttons on the page.
+        </p>
+
         <StencilLibSSR
           tagName='de-button'
-          tagRender={ssrButtonText}
-          props={{ size: 'md' }}
+          tagContent={ssrButtonText$}
+          props={{ size: size.value }}
+          onClick$={changeSize$}
+        />
+      </div>
+
+      <hr />
+
+      <div>
+        <p>
+          Server-side rendered alert with slotted content.<br />
+          The slot contains another server-side rendered button.<br />
+          <b>Click handler does not work!</b>
+        </p>
+
+        <StencilLibSSR
+          tagName='de-alert'
+          tagContent={alertContent$}
         />
       </div>
     </>

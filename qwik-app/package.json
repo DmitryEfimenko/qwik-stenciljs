@@ -8,21 +8,21 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "npm run sync:stencil-esm && qwik build",
+    "build": "npm run sync:stencil-assets && qwik build",
     "build.client": "vite build",
     "build.preview": "vite build --ssr src/entry.preview.tsx",
     "build.types": "tsc --incremental --noEmit",
     "deploy": "echo 'Run \"npm run qwik add\" to install a server adapter'",
-    "dev": "npm run sync:stencil-esm && vite --mode ssr",
+    "dev": "npm run sync:stencil-assets && vite --mode ssr",
     "dev.debug": "node --inspect-brk ./node_modules/vite/bin/vite.js --mode ssr --force",
     "fmt": "prettier --write .",
     "fmt.check": "prettier --check .",
     "lint": "eslint \"src/**/*.ts*\"",
-    "preview": "npm run sync:stencil-esm && qwik build preview && vite preview --open --port 4173 --strictPort",
-    "sync:stencil-esm": "node --input-type=module -e \"import fs from 'node:fs'; import path from 'node:path'; const src = path.resolve('../stencil-js-lib/dist/esm'); const dest = path.resolve('public/stencil/esm'); fs.rmSync(dest, { recursive: true, force: true }); fs.mkdirSync(dest, { recursive: true }); fs.cpSync(src, dest, { recursive: true }); console.log('Synced', src, '->', dest);\"",
+    "preview": "npm run sync:stencil-assets && qwik build preview && vite preview --open --port 4173 --strictPort",
+    "sync:stencil-assets": "tsx scripts/sync-stencil-assets.ts",
+    "sync:stencil-esm": "npm run sync:stencil-assets",
     "start": "vite --open --mode ssr",
-    "qwik": "qwik",
-    "link-stencil-lib": "npm link stencil-js-lib"
+    "qwik": "qwik"
   },
   "devDependencies": {
     "@builder.io/qwik": "^1.19.2",
@@ -36,6 +36,7 @@
     "typescript": "5.4.5",
     "typescript-eslint": "8.38.0",
     "typescript-plugin-css-modules": "latest",
+    "tsx": "^4.20.6",
     "undici": "*",
     "vite": "7.3.1",
     "vite-tsconfig-paths": "^4.2.1"

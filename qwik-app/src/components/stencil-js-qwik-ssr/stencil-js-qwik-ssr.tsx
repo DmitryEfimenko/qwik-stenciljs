@@ -14,13 +14,14 @@ export function createStencilSSRComponent(
   stencilRenderToStringQrl: QRL<StencilRenderToString>
 ) {
   return component$<StencilSSRProps>(
-    ({ tagName, tagRender, props, ...restProps }) => {
+    ({ tagName, tagContent, props, ...restProps }) => {
       const wrapperRef = useSignal<HTMLDivElement | undefined>(undefined);
       const ssrResult = useResource$(async ({ track }) => {
-        const trackedTagRenderQrl = track(() => tagRender);
+        const trackedTagContentQrl = track(() => tagContent);
 
-        const innerContent = trackedTagRenderQrl
-          ? await resolveStencilInnerContent(trackedTagRenderQrl)
+        // THE ISSUE IS HERE - in resolveStencilInnerContent
+        const innerContent = trackedTagContentQrl
+          ? await resolveStencilInnerContent(trackedTagContentQrl)
           : '';
 
         const markupToRender = `<${tagName}>${innerContent}</${tagName}>`;

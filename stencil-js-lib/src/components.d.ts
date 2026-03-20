@@ -6,6 +6,12 @@
  */
 import { HTMLStencilElement, JSXBase } from "@stencil/core/internal";
 export namespace Components {
+    interface DeAlert {
+        /**
+          * @default 'Alert'
+         */
+        "heading": string;
+    }
     interface DeButton {
         /**
           * @default 'md'
@@ -14,6 +20,12 @@ export namespace Components {
     }
 }
 declare global {
+    interface HTMLDeAlertElement extends Components.DeAlert, HTMLStencilElement {
+    }
+    var HTMLDeAlertElement: {
+        prototype: HTMLDeAlertElement;
+        new (): HTMLDeAlertElement;
+    };
     interface HTMLDeButtonElement extends Components.DeButton, HTMLStencilElement {
     }
     var HTMLDeButtonElement: {
@@ -21,10 +33,17 @@ declare global {
         new (): HTMLDeButtonElement;
     };
     interface HTMLElementTagNameMap {
+        "de-alert": HTMLDeAlertElement;
         "de-button": HTMLDeButtonElement;
     }
 }
 declare namespace LocalJSX {
+    interface DeAlert {
+        /**
+          * @default 'Alert'
+         */
+        "heading"?: string;
+    }
     interface DeButton {
         /**
           * @default 'md'
@@ -32,11 +51,15 @@ declare namespace LocalJSX {
         "size"?: 'sm' | 'md' | 'lg';
     }
 
+    interface DeAlertAttributes {
+        "heading": string;
+    }
     interface DeButtonAttributes {
         "size": 'sm' | 'md' | 'lg';
     }
 
     interface IntrinsicElements {
+        "de-alert": Omit<DeAlert, keyof DeAlertAttributes> & { [K in keyof DeAlert & keyof DeAlertAttributes]?: DeAlert[K] } & { [K in keyof DeAlert & keyof DeAlertAttributes as `attr:${K}`]?: DeAlertAttributes[K] } & { [K in keyof DeAlert & keyof DeAlertAttributes as `prop:${K}`]?: DeAlert[K] };
         "de-button": Omit<DeButton, keyof DeButtonAttributes> & { [K in keyof DeButton & keyof DeButtonAttributes]?: DeButton[K] } & { [K in keyof DeButton & keyof DeButtonAttributes as `attr:${K}`]?: DeButtonAttributes[K] } & { [K in keyof DeButton & keyof DeButtonAttributes as `prop:${K}`]?: DeButton[K] };
     }
 }
@@ -44,6 +67,7 @@ export { LocalJSX as JSX };
 declare module "@stencil/core" {
     export namespace JSX {
         interface IntrinsicElements {
+            "de-alert": LocalJSX.IntrinsicElements["de-alert"] & JSXBase.HTMLAttributes<HTMLDeAlertElement>;
             "de-button": LocalJSX.IntrinsicElements["de-button"] & JSXBase.HTMLAttributes<HTMLDeButtonElement>;
         }
     }
