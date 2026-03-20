@@ -1,65 +1,56 @@
-# Qwik City App ⚡️
+## Get Everything ready:
 
-- [Qwik Docs](https://qwik.dev/)
-- [Discord](https://qwik.dev/chat)
-- [Qwik GitHub](https://github.com/QwikDev/qwik)
-- [@QwikDev](https://twitter.com/QwikDev)
-- [Vite](https://vitejs.dev/)
-
----
-
-## Project Structure
-
-This project is using Qwik with [QwikCity](https://qwik.dev/qwikcity/overview/). QwikCity is just an extra set of tools on top of Qwik to make it easier to build a full site, including directory-based routing, layouts, and more.
-
-Inside your project, you'll see the following directory structure:
-
-```
-├── public/
-│   └── ...
-└── src/
-    ├── components/
-    │   └── ...
-    └── routes/
-        └── ...
+### StencilJS Lib:
+```sh
+cd stencil-js-lib
+npm i
+npm run build
+npm link
 ```
 
-- `src/routes`: Provides the directory-based routing, which can include a hierarchy of `layout.tsx` layout files, and an `index.tsx` file as the page. Additionally, `index.ts` files are endpoints. Please see the [routing docs](https://qwik.dev/qwikcity/routing/overview/) for more info.
-
-- `src/components`: Recommended directory for components.
-
-- `public`: Any static assets, like images, can be placed in the public directory. Please see the [Vite public directory](https://vitejs.dev/guide/assets.html#the-public-directory) for more info.
-
-## Add Integrations and deployment
-
-Use the `npm run qwik add` command to add additional integrations. Some examples of integrations includes: Cloudflare, Netlify or Express Server, and the [Static Site Generator (SSG)](https://qwik.dev/qwikcity/guides/static-site-generation/).
-
-```shell
-npm run qwik add # or `yarn qwik add`
+### Qwik app
+```sh
+cd ../qwik-app
+npm i
+npm run link-stencil-lib
+npm run preview
 ```
 
-## Development
+`qwik-app` scripts now sync local Stencil lazy chunks from
+`../stencil-js-lib/dist/esm` into `qwik-app/public/stencil/esm` before `dev`,
+`build`, and `preview`. This prevents preview 404s such as
+`/build/de-button.entry.js` by loading chunks from `/stencil/esm/`.
 
-Development mode uses [Vite's development server](https://vitejs.dev/). The `dev` command will server-side render (SSR) the output during development.
+Or run the link step directly:
 
-```shell
-npm start # or `yarn start`
+```sh
+npm link stencil-js-lib
 ```
 
-> Note: during dev mode, Vite may request a significant number of `.js` files. This does not represent a Qwik production build.
+Use the package name from `stencil-js-lib/package.json` in your imports:
 
-## Preview
-
-The preview command will create a production build of the client modules, a production build of `src/entry.preview.tsx`, and run a local server. The preview server is only for convenience to preview a production build locally and should not be used as a production server.
-
-```shell
-npm run preview # or `yarn preview`
+```ts
+import { defineCustomElements } from 'stencil-js-lib/loader';
 ```
 
-## Production
+## Linked Dev Troubleshooting
 
-The production build will generate client and server modules by running both client and server build commands. The build command will use Typescript to run a type check on the source code.
+If Qwik dev/preview shows 403 for a request like:
 
-```shell
-npm run build # or `yarn build`
+`/@fs/C:/.../stencil-js-lib/dist/esm/de-button.entry.js`
+
+that means Vite is blocking files outside `qwik-app` root. This repo's
+`qwik-app/vite.config.ts` includes a scoped allowlist for linked Stencil output.
+
+After changing Stencil component code, rebuild and relink:
+
+```sh
+cd stencil-js-lib
+npm run build
+npm link
+
+cd ../qwik-app
+npm link stencil-js-lib
+npm run sync:stencil-esm
+npm run dev
 ```

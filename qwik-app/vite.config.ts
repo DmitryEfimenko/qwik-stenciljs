@@ -2,9 +2,11 @@
  * This is the base config for vite.
  * When building, the adapter config is used which loads this file and extends it.
  */
-import { defineConfig, type UserConfig } from "vite";
-import { qwikVite } from "@builder.io/qwik/optimizer";
 import { qwikCity } from "@builder.io/qwik-city/vite";
+import { qwikVite, QwikVitePluginApi } from "@builder.io/qwik/optimizer";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { defineConfig, type UserConfig } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 import pkg from "./package.json";
 
@@ -20,13 +22,47 @@ errorOnDuplicatesPkgDeps(devDependencies, dependencies);
  * Note that Vite normally starts from `index.html` but the qwikCity plugin makes start at `src/entry.ssr.tsx` instead.
  */
 export default defineConfig(({ command, mode }): UserConfig => {
+  let qwikApi: QwikVitePluginApi;
+  const appRoot = dirname(fileURLToPath(import.meta.url));
+
+  // npm link points to a real path outside qwik-app; allow only the needed stencil outputs.
+  const linkedStencilAllowList = [
+    appRoot,
+    resolve(appRoot, "../stencil-js-lib/dist"),
+    resolve(appRoot, "../stencil-js-lib/loader"),
+  ];
+  
   return {
-    plugins: [qwikCity(), qwikVite(), tsconfigPaths({ root: "." })],
+    plugins: [
+      qwikCity(),
+      qwikVite(),
+      tsconfigPaths({ root: "." }),
+      // {
+      //   name: 'dev-manifest-bridge',
+      //   configureServer(server) {
+      //     // Find the Qwik plugin instance to get its API
+      //     const qwikPlugin = server.config.plugins.find(p => p.name === 'vite-plugin-qwik');
+      //     qwikApi = (qwikPlugin as any)?.api;
+      //   },
+      //   resolveId(id) {
+      //     if (id === '@qwik-client-manifest') return '\0virtual:qwik-client-manifest';
+      //   },
+      //   async load(id) {
+      //     if (id === '\0virtual:qwik-client-manifest') {
+      //       // Retrieve the "in-progress" manifest from the Optimizer
+      //       const manifest = qwikApi ? await qwikApi.getManifest() : null;
+            
+      //       return `export const manifest = ${JSON.stringify(manifest || { symbols: {}, mapping: {} })};`;
+      //     }
+      //   },
+      // },
+    ],
     // This tells Vite which dependencies to pre-build in dev mode.
     optimizeDeps: {
       // Put problematic deps that break bundling here, mostly those with binaries.
       // For example ['better-sqlite3'] if you use that in server functions.
-      exclude: [],
+      // Keep Stencil loader behavior intact (it uses dynamic relative imports).
+      exclude: ["stencil-js-lib/loader"],
     },
 
     /**
@@ -47,6 +83,9 @@ export default defineConfig(({ command, mode }): UserConfig => {
     //     : undefined,
 
     server: {
+      fs: {
+        allow: linkedStencilAllowList,
+      },
       headers: {
         // Don't cache the server response in dev mode
         "Cache-Control": "public, max-age=0",
@@ -54,8 +93,8 @@ export default defineConfig(({ command, mode }): UserConfig => {
     },
     preview: {
       headers: {
-        // Do cache the server response in preview (non-adapter production build)
-        "Cache-Control": "public, max-age=600",
+        // Keep preview uncached for local linked-package testing.
+        "Cache-Control": "no-store",
       },
     },
   };
