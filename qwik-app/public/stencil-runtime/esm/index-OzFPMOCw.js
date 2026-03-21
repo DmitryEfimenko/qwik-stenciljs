@@ -106,6 +106,7 @@ var registerHost = (hostElement, cmpMeta) => {
   hostElement.__stencil__getHostRef = () => ref;
   return ref;
 };
+var isMemberInElement = (elm, memberName) => memberName in elm;
 var consoleError = (e, el) => (0, console.error)(e, el);
 
 // src/client/client-load-module.ts
@@ -1064,6 +1065,7 @@ var setAccessor = (elm, memberName, oldValue, newValue, isSvg, flags, initialRen
   if (oldValue === newValue) {
     return;
   }
+  let isProp = isMemberInElement(elm, memberName);
   memberName.toLowerCase();
   if (memberName === "class") {
     const classList = elm.classList;
@@ -1080,6 +1082,69 @@ var setAccessor = (elm, memberName, oldValue, newValue, isSvg, flags, initialRen
     } else {
       classList.remove(...oldClasses.filter((c) => c && !newClasses.includes(c)));
       classList.add(...newClasses.filter((c) => c && !oldClasses.includes(c)));
+    }
+  } else if (memberName === "key") ; else if (memberName[0] === "a" && memberName.startsWith("attr:")) {
+    const propName = memberName.slice(5);
+    let attrName;
+    {
+      const hostRef = getHostRef(elm);
+      if (hostRef && hostRef.$cmpMeta$ && hostRef.$cmpMeta$.$members$) {
+        const memberMeta = hostRef.$cmpMeta$.$members$[propName];
+        if (memberMeta && memberMeta[1]) {
+          attrName = memberMeta[1];
+        }
+      }
+    }
+    if (!attrName) {
+      attrName = propName.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+    }
+    if (newValue == null || newValue === false) {
+      if (newValue !== false || elm.getAttribute(attrName) === "") {
+        elm.removeAttribute(attrName);
+      }
+    } else {
+      elm.setAttribute(attrName, newValue === true ? "" : newValue);
+    }
+    return;
+  } else if (memberName[0] === "p" && memberName.startsWith("prop:")) {
+    const propName = memberName.slice(5);
+    try {
+      elm[propName] = newValue;
+    } catch (e) {
+    }
+    return;
+  } else {
+    const isComplex = isComplexType(newValue);
+    if ((isProp || isComplex && newValue !== null) && !isSvg) {
+      try {
+        if (!elm.tagName.includes("-")) {
+          const n = newValue == null ? "" : newValue;
+          if (memberName === "list") {
+            isProp = false;
+          } else if (oldValue == null || elm[memberName] !== n) {
+            if (typeof elm.__lookupSetter__(memberName) === "function") {
+              elm[memberName] = n;
+            } else {
+              elm.setAttribute(memberName, n);
+            }
+          }
+        } else if (elm[memberName] !== newValue) {
+          elm[memberName] = newValue;
+        }
+      } catch (e) {
+      }
+    }
+    if (newValue == null || newValue === false) {
+      if (newValue !== false || elm.getAttribute(memberName) === "") {
+        {
+          elm.removeAttribute(memberName);
+        }
+      }
+    } else if ((!isProp || flags & 4 /* isHost */ || isSvg) && !isComplex && elm.nodeType === 1 /* ElementNode */) {
+      newValue = newValue === true ? "" : newValue;
+      {
+        elm.setAttribute(memberName, newValue);
+      }
     }
   }
 };

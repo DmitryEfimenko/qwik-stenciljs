@@ -1293,7 +1293,7 @@ var setAccessor = (elm, memberName, oldValue, newValue, isSvg, flags, initialRen
   if (oldValue === newValue) {
     return;
   }
-  isMemberInElement(elm, memberName);
+  let isProp = isMemberInElement(elm, memberName);
   memberName.toLowerCase();
   if (memberName === "class") {
     const classList = elm.classList;
@@ -1310,6 +1310,69 @@ var setAccessor = (elm, memberName, oldValue, newValue, isSvg, flags, initialRen
     } else {
       classList.remove(...oldClasses.filter((c) => c && !newClasses.includes(c)));
       classList.add(...newClasses.filter((c) => c && !oldClasses.includes(c)));
+    }
+  } else if (memberName === "key") ; else if (memberName[0] === "a" && memberName.startsWith("attr:")) {
+    const propName = memberName.slice(5);
+    let attrName;
+    {
+      const hostRef = getHostRef(elm);
+      if (hostRef && hostRef.$cmpMeta$ && hostRef.$cmpMeta$.$members$) {
+        const memberMeta = hostRef.$cmpMeta$.$members$[propName];
+        if (memberMeta && memberMeta[1]) {
+          attrName = memberMeta[1];
+        }
+      }
+    }
+    if (!attrName) {
+      attrName = propName.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+    }
+    if (newValue == null || newValue === false) {
+      if (newValue !== false || elm.getAttribute(attrName) === "") {
+        elm.removeAttribute(attrName);
+      }
+    } else {
+      elm.setAttribute(attrName, newValue === true ? "" : newValue);
+    }
+    return;
+  } else if (memberName[0] === "p" && memberName.startsWith("prop:")) {
+    const propName = memberName.slice(5);
+    try {
+      elm[propName] = newValue;
+    } catch (e) {
+    }
+    return;
+  } else {
+    const isComplex = isComplexType(newValue);
+    if ((isProp || isComplex && newValue !== null) && !isSvg) {
+      try {
+        if (!elm.tagName.includes("-")) {
+          const n = newValue == null ? "" : newValue;
+          if (memberName === "list") {
+            isProp = false;
+          } else if (oldValue == null || elm[memberName] !== n) {
+            if (typeof elm.__lookupSetter__(memberName) === "function") {
+              elm[memberName] = n;
+            } else {
+              elm.setAttribute(memberName, n);
+            }
+          }
+        } else if (elm[memberName] !== newValue) {
+          elm[memberName] = newValue;
+        }
+      } catch (e) {
+      }
+    }
+    if (newValue == null || newValue === false) {
+      if (newValue !== false || elm.getAttribute(memberName) === "") {
+        {
+          elm.removeAttribute(memberName);
+        }
+      }
+    } else if ((!isProp || flags & 4 /* isHost */ || isSvg) && !isComplex && elm.nodeType === 1 /* ElementNode */) {
+      newValue = newValue === true ? "" : newValue;
+      {
+        elm.setAttribute(memberName, newValue);
+      }
     }
   }
 };
@@ -4565,7 +4628,7 @@ class DeAlert {
     }
     heading = 'Alert';
     render() {
-        return (hAsync("div", { key: '46071e0882c1fde08cf35121c9991fa63597c811', class: "de-alert" }, hAsync("strong", { key: '0387e3cb64e06c2b35f278f01011945abfdbf07d' }, this.heading), hAsync("div", { key: 'dc9bb00a59d4f783df0d9920c9f35a226582e068', class: "de-alert__content" }, hAsync("slot", { key: 'e5b34579a4328f0c97eec04ce3aa106aadc60380' }))));
+        return (hAsync("div", { key: '46071e0882c1fde08cf35121c9991fa63597c811', class: "de-alert" }, hAsync("strong", { key: '0387e3cb64e06c2b35f278f01011945abfdbf07d' }, this.heading), hAsync("div", { key: 'dc9bb00a59d4f783df0d9920c9f35a226582e068', class: "de-alert__content" }, hAsync("slot", { key: 'e5b34579a4328f0c97eec04ce3aa106aadc60380' })), hAsync("div", { key: '166a62dd10c72893720c1206f4f804fa35c0f97f', class: "de-alert__footer" }, hAsync("slot", { key: '60e03748d625fbdd4d930cde67e5c65f3ce19a7a', name: "footer" }))));
     }
     static get style() { return deAlertCss(); }
     static get cmpMeta() { return {
@@ -4588,7 +4651,7 @@ class DeButton {
     }
     size = 'md';
     render() {
-        return (hAsync("button", { key: '309584230c30377fea687543f6497162f879175b', class: `de-button de-button--${this.size}` }, hAsync("slot", { key: '98ad927948e1a652edc66d287f51d074c332ec7c' })));
+        return (hAsync("button", { key: 'ec0c8f1fd1774fd83b3b7ddb362f1d0564d1b4a3', class: `de-button de-button--${this.size}` }, hAsync("slot", { key: 'faf494d1e3a97c0eaf71ac4a9c4f93d5e8271ba6' })));
     }
     static get style() { return deButtonCss(); }
     static get cmpMeta() { return {

@@ -17,6 +17,10 @@ export class DeAlert {
         <div class="de-alert__content">
           <slot></slot>
         </div>
+
+        <div class="de-alert__footer">
+          <slot name="footer"></slot>
+        </div>
       </div>
     );
   }
