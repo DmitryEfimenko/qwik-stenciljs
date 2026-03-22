@@ -2,3 +2,6 @@
 
 // Add global `vite/client` types. For more info, see: https://vitejs.dev/guide/features#client-types
 /// <reference types="vite/client" />
+
+declare const __STENCIL_LOADER_DEV_URL__: string;
+declare const __STENCIL_RESOURCES_DEV_URL__: string;

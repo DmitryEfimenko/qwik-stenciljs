@@ -1,23 +1,39 @@
-import { JSXNode, QRL, Signal } from '@builder.io/qwik';
-
-export type StencilSlotContent =
-  | string
-  | number
-  | boolean
-  | null
-  | undefined
-  | StencilSlotContent[]
-  | Signal<StencilSlotContent>
-  | JSXNode;
-
 export interface StencilRenderToStringOptions {
   prettyHtml?: boolean;
   removeScripts?: boolean;
+  fullDocument?: boolean;
+  removeUnusedStyles?: boolean;
+  serializeShadowRoot?:
+    | 'declarative-shadow-dom'
+    | 'scoped'
+    | {
+        'declarative-shadow-dom'?: string[];
+        scoped?: string[];
+        default: 'declarative-shadow-dom' | 'scoped';
+      }
+    | boolean;
   beforeHydrate?: (root: ParentNode) => void;
+  [key: string]: unknown;
+}
+
+export interface StencilHydrateStyleElement {
+  id?: string;
+  href?: string;
+  content?: string;
+  [key: string]: string | undefined;
+}
+
+export interface StencilHydrateComponent {
+  tag: string;
+  mode: string;
+  count: number;
+  depth: number;
 }
 
 export interface StencilRenderToStringResult {
   html: string;
+  styles?: StencilHydrateStyleElement[];
+  components?: StencilHydrateComponent[];
 }
 
 export type StencilRenderToString = (
@@ -27,8 +43,11 @@ export type StencilRenderToString = (
 
 export interface StencilSSRProps {
   tagName: string;
-  // tagContent?: string;
-  tagContent?: QRL<() => JSXNode>;
-  props: Record<string, unknown>;
+  props?: Record<string, unknown>;
+  /**
+   * Names of the named slots this Stencil component accepts (e.g. `['footer']`).
+   * Children with the matching `q:slot` attribute will be projected into them.
+   */
+  slots?: string[];
   [key: string]: unknown;
 }

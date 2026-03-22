@@ -5,17 +5,22 @@ export async function defineCustomElements() {
   // import { defineCustomElements } from '<package>/loader' and call it directly.
   // This demo loads copied output targets instead, so we can avoid npm-link-specific
   // Vite server/fs configuration complexity while still showing Stencil in Qwik.
-  const stencilLoaderUrl = '/stencil-runtime/esm/loader.js';
+  const stencilLoaderUrl = import.meta.env.DEV
+    ? __STENCIL_LOADER_DEV_URL__
+    : '/stencil-runtime/esm/loader.js';
+  const stencilResourcesUrl = import.meta.env.DEV
+    ? __STENCIL_RESOURCES_DEV_URL__
+    : '/stencil-runtime/esm/';
   const { defineCustomElements: defineCustomElementsFromLoader } = await import(
     /* @vite-ignore */ stencilLoaderUrl
   );
 
   await defineCustomElementsFromLoader(undefined, {
-    resourcesUrl: '/stencil-runtime/esm/',
+    resourcesUrl: stencilResourcesUrl,
   });
 }
 
-export async function renderStencilToString(
+export async function renderToString(
   input: string,
   options?: StencilRenderToStringOptions,
 ) {
@@ -30,10 +35,14 @@ export async function renderStencilToString(
   const hydrateModuleId = encodeURI(
     `file:///${cwdPosix}/public/stencil-runtime/hydrate/index.mjs`,
   );
-  const { renderToString } = await import(/* @vite-ignore */ hydrateModuleId);
-  const result = await renderToString(input, options);
+  const { renderToString: stencilRenderToString } = await import(
+    /* @vite-ignore */ hydrateModuleId
+  );
+  const result = await stencilRenderToString(input, options);
 
   return {
     html: result.html ?? '',
+    styles: result.styles,
+    components: result.components,
   };
 }

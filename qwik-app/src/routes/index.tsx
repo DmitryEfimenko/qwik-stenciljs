@@ -1,31 +1,14 @@
-import { $, component$, useSignal, useVisibleTask$ } from "@builder.io/qwik";
-import type { DocumentHead } from "@builder.io/qwik-city";
-import { defineCustomElements } from '../components/stencil-js-utils';
-import { StencilLibSSR } from '../components/stencil-lib-ssr';
-
+import { $, component$, useSignal } from "@builder.io/qwik";
+import { type DocumentHead } from "@builder.io/qwik-city";
+import { StencilJsLibSSRComponent, useStencilClientSetup } from '../components/stencil-lib-ssr';
 
 export default component$(() => {
   const size = useSignal<'md' | 'lg'>('md');
-
-  // eslint-disable-next-line qwik/no-use-visible-task
-  useVisibleTask$(async () => {
-    await defineCustomElements();
-  });
-
-  const ssrButtonText$ = $(() => <>Rendered via SSR</>);
+  useStencilClientSetup();
 
   const changeSize$ = $(() => {
     size.value = size.value === 'md' ? 'lg' : 'md';
   });
-
-  const alertContent$ = $(() => (
-    <StencilLibSSR
-      tagName='de-button'
-      tagContent={ssrButtonText$}
-      props={{ size: size.value }}
-      onClick$={changeSize$}
-    />
-  ));
   
   return (
     <>
@@ -35,7 +18,7 @@ export default component$(() => {
           Click handler toggles size on all buttons on the page.
         </p>
 
-        <de-button size={size.value} onClick$={changeSize$}>Rendered via CSR</de-button>
+        {/* <de-button size={size.value} onClick$={changeSize$}>Rendered via CSR</de-button> */}
       </div>
 
       <hr />
@@ -46,12 +29,9 @@ export default component$(() => {
           Click handler toggles size on all buttons on the page.
         </p>
 
-        <StencilLibSSR
-          tagName='de-button'
-          tagContent={ssrButtonText$}
-          props={{ size: size.value }}
-          onClick$={changeSize$}
-        />
+        <StencilJsLibSSRComponent tagName='de-button' props={{ size: size.value }} onClick$={changeSize$}>
+          Rendered via SSR
+        </StencilJsLibSSRComponent>
       </div>
 
       <hr />
@@ -59,14 +39,16 @@ export default component$(() => {
       <div>
         <p>
           Server-side rendered alert with slotted content.<br />
-          The slot contains another server-side rendered button.<br />
-          <b>Click handler does not work!</b>
+          The slot contains another server-side rendered button.
         </p>
 
-        <StencilLibSSR
-          tagName='de-alert'
-          tagContent={alertContent$}
-        />
+        <StencilJsLibSSRComponent tagName='de-alert' props={{ heading: 'V2 Alert' }} slots={['footer']}>
+          <p>Body content</p>
+          <StencilJsLibSSRComponent tagName='de-button' props={{ size: size.value }} onClick$={changeSize$}>
+            Rendered via SSR
+          </StencilJsLibSSRComponent>
+          <span q:slot="footer">Footer content (named slot)</span>
+        </StencilJsLibSSRComponent>
       </div>
     </>
   );

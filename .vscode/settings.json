@@ -1,0 +1,8 @@
+{
+  "chat.tools.terminal.autoApprove": {
+    "/^cd c:\\\\Source\\\\Random\\\\qwik-stenciljs\\\\qwik-app; node verify-styles\\.js$/": {
+      "approve": true,
+      "matchCommandLine": true
+    }
+  }
+}
