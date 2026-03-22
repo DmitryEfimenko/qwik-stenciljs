@@ -1,5 +1,5 @@
 const NAMESPACE = 'stencil-js-lib';
-const BUILD = /* stencil-js-lib */ { hotModuleReplacement: false, hydratedSelectorName: "hydrated", lazyLoad: true, prop: true, propChangeCallback: false, shadowDom: false, slotRelocation: true, updatable: true};
+const BUILD = /* stencil-js-lib */ { hotModuleReplacement: false, hydratedSelectorName: "hydrated", lazyLoad: true, prop: true, propChangeCallback: false, slotRelocation: true, updatable: true};
 
 /*
  Stencil Client Platform v4.43.3 | MIT Licensed | https://stenciljs.com
@@ -165,7 +165,6 @@ var plt = {
   rel: (el, eventName, listener, opts) => el.removeEventListener(eventName, listener, opts),
   ce: (eventName, opts) => new CustomEvent(eventName, opts)
 };
-var supportsShadow = BUILD.shadowDom;
 var promiseResolve = (v) => Promise.resolve(v);
 var supportsConstructableStylesheets = /* @__PURE__ */ (() => {
   try {
@@ -214,6 +213,27 @@ var flush = () => {
 };
 var nextTick = (cb) => promiseResolve().then(cb);
 var writeTask = /* @__PURE__ */ queueTask(queueDomWrites, true);
+
+// src/utils/style.ts
+function createStyleSheetIfNeededAndSupported(styles2) {
+  return void 0;
+}
+
+// src/utils/shadow-root.ts
+var globalStyleSheet;
+function createShadowRoot(cmpMeta) {
+  var _a;
+  const opts = { mode: "open" };
+  const shadowRoot = this.attachShadow(opts);
+  if (globalStyleSheet === void 0) globalStyleSheet = (_a = createStyleSheetIfNeededAndSupported()) != null ? _a : null;
+  if (globalStyleSheet) {
+    if (supportsMutableAdoptedStyleSheets) {
+      shadowRoot.adoptedStyleSheets.push(globalStyleSheet);
+    } else {
+      shadowRoot.adoptedStyleSheets = [...shadowRoot.adoptedStyleSheets, globalStyleSheet];
+    }
+  }
+}
 var updateFallbackSlotVisibility = (elm) => {
   const childNodes = internalCall(elm, "childNodes");
   if (elm.tagName && elm.tagName.includes("-") && elm["s-cr"] && elm.tagName !== "SLOT-FB") {
@@ -500,13 +520,29 @@ var addStyle = (styleContainerNode, cmpMeta, mode) => {
 var attachStyles = (hostRef) => {
   const cmpMeta = hostRef.$cmpMeta$;
   const elm = hostRef.$hostElement$;
+  const flags = cmpMeta.$flags$;
   const endAttachStyles = createTime("attachStyles", cmpMeta.$tagName$);
-  addStyle(
-    elm.getRootNode(),
+  const scopeId2 = addStyle(
+    elm.shadowRoot ? elm.shadowRoot : elm.getRootNode(),
     cmpMeta);
+  if (flags & 10 /* needsScopedEncapsulation */) {
+    elm["s-sc"] = scopeId2;
+    elm.classList.add(scopeId2 + "-h");
+  }
   endAttachStyles();
 };
 var getScopeId = (cmp, mode) => "sc-" + (cmp.$tagName$);
+var convertScopedToShadow = (css) => css.replace(/\/\*!@([^\/]+)\*\/[^\{]+\{/g, "$1{");
+var hydrateScopedToShadow = () => {
+  if (!win.document) {
+    return;
+  }
+  const styles2 = win.document.querySelectorAll(`[${HYDRATED_STYLE_ID}]`);
+  let i2 = 0;
+  for (; i2 < styles2.length; i2++) {
+    registerStyle(styles2[i2].getAttribute(HYDRATED_STYLE_ID), convertScopedToShadow(styles2[i2].innerHTML), true);
+  }
+};
 var isComplexType = (o) => {
   o = typeof o;
   return o === "object" || o === "function";
@@ -600,7 +636,7 @@ var initializeClientHydrate = (hostElm, tagName, hostId, hostRef) => {
   const childRenderNodes = [];
   const slotNodes = [];
   const slottedNodes = [];
-  const shadowRootNodes = null;
+  const shadowRootNodes = shadowRoot ? [] : null;
   const vnode = newVNode(tagName, null);
   vnode.$elm$ = hostElm;
   if (win.document && (!plt.$orgLocNodes$ || !plt.$orgLocNodes$.size)) {
@@ -708,6 +744,27 @@ var initializeClientHydrate = (hostElm, tagName, hostId, hostRef) => {
       currentPos = (slottedItem.node["s-oo"] || currentPos) + 1;
     }
   }
+  if (shadowRoot && !shadowRoot.childNodes.length) {
+    let rnIdex = 0;
+    const rnLen = shadowRootNodes.length;
+    if (rnLen) {
+      for (rnIdex; rnIdex < rnLen; rnIdex++) {
+        const node = shadowRootNodes[rnIdex];
+        if (node) {
+          shadowRoot.appendChild(node);
+        }
+      }
+      Array.from(hostElm.childNodes).forEach((node) => {
+        if (typeof node["s-en"] !== "string" && typeof node["s-sn"] !== "string") {
+          if (node.nodeType === 1 /* ElementNode */ && node.slot && node.hidden) {
+            node.removeAttribute("hidden");
+          } else if (node.nodeType === 8 /* CommentNode */ && !node.nodeValue) {
+            node.parentNode.removeChild(node);
+          }
+        }
+      });
+    }
+  }
   hostRef.$hostElement$ = hostElm;
   endHydrate();
 };
@@ -760,6 +817,9 @@ var clientHydrate = (parentVNode, childRenderNodes, slotNodes, shadowRootNodes, 
           parentVNode.$children$[childVNode.$index$] = childVNode;
         }
         parentVNode = childVNode;
+        if (shadowRootNodes && childVNode.$depth$ === "0") {
+          shadowRootNodes[childVNode.$index$] = childVNode.$elm$;
+        }
       }
     }
     if (node.shadowRoot) {
@@ -818,6 +878,9 @@ var clientHydrate = (parentVNode, childRenderNodes, slotNodes, shadowRootNodes, 
             }
             parentVNode.$children$[childVNode.$index$] = childVNode;
           }
+          if (shadowRootNodes && childVNode.$depth$ === "0") {
+            shadowRootNodes[childVNode.$index$] = childVNode.$elm$;
+          }
         }
       } else if (childNodeType === COMMENT_NODE_ID) {
         childVNode.$elm$ = findCorrespondingNode(node, 8 /* CommentNode */);
@@ -840,7 +903,9 @@ var clientHydrate = (parentVNode, childRenderNodes, slotNodes, shadowRootNodes, 
             slottedNodes
           );
         } else if (childNodeType === CONTENT_REF_ID) {
-          {
+          if (shadowRootNodes) {
+            node.remove();
+          } else {
             hostElm["s-cr"] = node;
             node["s-cn"] = true;
           }
@@ -902,7 +967,22 @@ function addSlot(slotName, slotId, childVNode, node, parentVNode, childRenderNod
   childVNode.$name$ = slotName || null;
   childVNode.$tag$ = "slot";
   const parentNodeId = (parentVNode == null ? void 0 : parentVNode.$elm$) ? parentVNode.$elm$["s-id"] || parentVNode.$elm$.getAttribute("s-id") : "";
-  {
+  if (shadowRootNodes && win.document) {
+    const slot = childVNode.$elm$ = win.document.createElement(childVNode.$tag$);
+    if (childVNode.$name$) {
+      childVNode.$elm$.setAttribute("name", slotName);
+    }
+    if (parentVNode.$elm$.shadowRoot && parentNodeId && parentNodeId !== childVNode.$hostId$) {
+      internalCall(parentVNode.$elm$, "insertBefore")(slot, internalCall(parentVNode.$elm$, "children")[0]);
+    } else {
+      internalCall(internalCall(node, "parentNode"), "insertBefore")(slot, node);
+    }
+    addSlottedNodes(slottedNodes, slotId, slotName, node, childVNode.$hostId$);
+    node.remove();
+    if (childVNode.$depth$ === "0") {
+      shadowRootNodes[childVNode.$index$] = childVNode.$elm$;
+    }
+  } else {
     const slot = childVNode.$elm$;
     const shouldMove = parentNodeId && parentNodeId !== childVNode.$hostId$ && parentVNode.$elm$.shadowRoot;
     addSlottedNodes(slottedNodes, slotId, slotName, node, shouldMove ? parentNodeId : childVNode.$hostId$);
@@ -1320,6 +1400,9 @@ var putBackInOriginalLocation = (parentElm, recursive) => {
 var addVnodes = (parentElm, before, parentVNode, vnodes, startIdx, endIdx) => {
   let containerElm = parentElm["s-cr"] && parentElm["s-cr"].parentNode || parentElm;
   let childNode;
+  if (containerElm.shadowRoot && containerElm.tagName === hostTagName) {
+    containerElm = containerElm.shadowRoot;
+  }
   if (parentVNode.$tag$ === "template") {
     containerElm = containerElm.content;
   }
@@ -1584,8 +1667,8 @@ var renderVdom = (hostRef, renderFnResults, isInitialLoad = false) => {
   rootVnode.$tag$ = null;
   rootVnode.$flags$ |= 4 /* isHost */;
   hostRef.$vnode$ = rootVnode;
-  rootVnode.$elm$ = oldVNode.$elm$ = hostElm;
-  useNativeShadowDom = supportsShadow;
+  rootVnode.$elm$ = oldVNode.$elm$ = hostElm.shadowRoot || hostElm ;
+  useNativeShadowDom = !!(cmpMeta.$flags$ & 1 /* shadowDomEncapsulation */) && !(cmpMeta.$flags$ & 128 /* shadowNeedsScopedCss */);
   {
     contentRef = hostElm["s-cr"];
     checkSlotFallbackVisibility = false;
@@ -2132,6 +2215,10 @@ var connectedCallback = (elm) => {
       {
         hostId = elm.getAttribute(HYDRATE_ID);
         if (hostId) {
+          if (cmpMeta.$flags$ & 1 /* shadowDomEncapsulation */) {
+            const scopeId2 = addStyle(elm.shadowRoot, cmpMeta);
+            elm.classList.remove(scopeId2 + "-h", scopeId2 + "-s");
+          }
           initializeClientHydrate(elm, cmpMeta.$tagName$, hostId, hostRef);
         }
       }
@@ -2226,6 +2313,9 @@ var bootstrapLazy = (lazyBundles, options = {}) => {
   {
     plt.$flags$ |= 2 /* appLoaded */;
   }
+  {
+    hydrateScopedToShadow();
+  }
   let hasSlotRelocation = false;
   lazyBundles.map((lazyBundle) => {
     lazyBundle[1].map((compactMeta) => {
@@ -2251,6 +2341,19 @@ var bootstrapLazy = (lazyBundles, options = {}) => {
           super(self);
           self = this;
           registerHost(self, cmpMeta);
+          if (cmpMeta.$flags$ & 1 /* shadowDomEncapsulation */) {
+            {
+              if (!self.shadowRoot) {
+                createShadowRoot.call(self, cmpMeta);
+              } else {
+                if (self.shadowRoot.mode !== "open") {
+                  throw new Error(
+                    `Unable to re-use existing shadow root for ${cmpMeta.$tagName$}! Mode is set to ${self.shadowRoot.mode} but Stencil only supports open shadow roots.`
+                  );
+                }
+              }
+            }
+          }
         }
         connectedCallback() {
           const hostRef = getHostRef(this);

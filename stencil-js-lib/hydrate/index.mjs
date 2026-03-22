@@ -130,7 +130,7 @@ function hydrateFactory($stencilWindow, $stencilHydrateOpts, $stencilHydrateResu
 
 
 const NAMESPACE = 'stencil-js-lib';
-const BUILD = /* stencil-js-lib */ { hotModuleReplacement: false, hydratedSelectorName: "hydrated", prop: true, propChangeCallback: false, shadowDom: false, slotRelocation: true, updatable: true};
+const BUILD = /* stencil-js-lib */ { hotModuleReplacement: false, hydratedSelectorName: "hydrated", prop: true, propChangeCallback: false, slotRelocation: true, updatable: true};
 
 /*
  Stencil Hydrate Platform v4.43.3 | MIT Licensed | https://stenciljs.com
@@ -726,13 +726,21 @@ var addStyle = (styleContainerNode, cmpMeta, mode) => {
 var attachStyles = (hostRef) => {
   const cmpMeta = hostRef.$cmpMeta$;
   const elm = hostRef.$hostElement$;
+  const flags = cmpMeta.$flags$;
   const endAttachStyles = createTime("attachStyles", cmpMeta.$tagName$);
-  addStyle(
-    elm.getRootNode(),
+  const scopeId2 = addStyle(
+    elm.shadowRoot ? elm.shadowRoot : elm.getRootNode(),
     cmpMeta);
+  if (flags & 10 /* needsScopedEncapsulation */) {
+    elm["s-sc"] = scopeId2;
+    elm.classList.add(scopeId2 + "-h");
+  }
   endAttachStyles();
 };
 var getScopeId = (cmp, mode) => "sc-" + (cmp.$tagName$);
+
+// src/utils/helpers.ts
+var isDef = (v) => v != null && v !== void 0;
 var isComplexType = (o) => {
   o = typeof o;
   return o === "object" || o === "function";
@@ -826,7 +834,7 @@ var initializeClientHydrate = (hostElm, tagName, hostId, hostRef) => {
   const childRenderNodes = [];
   const slotNodes = [];
   const slottedNodes = [];
-  const shadowRootNodes = null;
+  const shadowRootNodes = shadowRoot ? [] : null;
   const vnode = newVNode(tagName, null);
   vnode.$elm$ = hostElm;
   if (win.document && (!plt.$orgLocNodes$ || !plt.$orgLocNodes$.size)) {
@@ -934,6 +942,27 @@ var initializeClientHydrate = (hostElm, tagName, hostId, hostRef) => {
       currentPos = (slottedItem.node["s-oo"] || currentPos) + 1;
     }
   }
+  if (shadowRoot && !shadowRoot.childNodes.length) {
+    let rnIdex = 0;
+    const rnLen = shadowRootNodes.length;
+    if (rnLen) {
+      for (rnIdex; rnIdex < rnLen; rnIdex++) {
+        const node = shadowRootNodes[rnIdex];
+        if (node) {
+          shadowRoot.appendChild(node);
+        }
+      }
+      Array.from(hostElm.childNodes).forEach((node) => {
+        if (typeof node["s-en"] !== "string" && typeof node["s-sn"] !== "string") {
+          if (node.nodeType === 1 /* ElementNode */ && node.slot && node.hidden) {
+            node.removeAttribute("hidden");
+          } else if (node.nodeType === 8 /* CommentNode */ && !node.nodeValue) {
+            node.parentNode.removeChild(node);
+          }
+        }
+      });
+    }
+  }
   hostRef.$hostElement$ = hostElm;
   endHydrate();
 };
@@ -986,6 +1015,9 @@ var clientHydrate = (parentVNode, childRenderNodes, slotNodes, shadowRootNodes, 
           parentVNode.$children$[childVNode.$index$] = childVNode;
         }
         parentVNode = childVNode;
+        if (shadowRootNodes && childVNode.$depth$ === "0") {
+          shadowRootNodes[childVNode.$index$] = childVNode.$elm$;
+        }
       }
     }
     if (node.shadowRoot) {
@@ -1044,6 +1076,9 @@ var clientHydrate = (parentVNode, childRenderNodes, slotNodes, shadowRootNodes, 
             }
             parentVNode.$children$[childVNode.$index$] = childVNode;
           }
+          if (shadowRootNodes && childVNode.$depth$ === "0") {
+            shadowRootNodes[childVNode.$index$] = childVNode.$elm$;
+          }
         }
       } else if (childNodeType === COMMENT_NODE_ID) {
         childVNode.$elm$ = findCorrespondingNode(node, 8 /* CommentNode */);
@@ -1066,7 +1101,9 @@ var clientHydrate = (parentVNode, childRenderNodes, slotNodes, shadowRootNodes, 
             slottedNodes
           );
         } else if (childNodeType === CONTENT_REF_ID) {
-          {
+          if (shadowRootNodes) {
+            node.remove();
+          } else {
             hostElm["s-cr"] = node;
             node["s-cn"] = true;
           }
@@ -1128,7 +1165,22 @@ function addSlot(slotName, slotId, childVNode, node, parentVNode, childRenderNod
   childVNode.$name$ = slotName || null;
   childVNode.$tag$ = "slot";
   const parentNodeId = (parentVNode == null ? void 0 : parentVNode.$elm$) ? parentVNode.$elm$["s-id"] || parentVNode.$elm$.getAttribute("s-id") : "";
-  {
+  if (shadowRootNodes && win.document) {
+    const slot = childVNode.$elm$ = win.document.createElement(childVNode.$tag$);
+    if (childVNode.$name$) {
+      childVNode.$elm$.setAttribute("name", slotName);
+    }
+    if (parentVNode.$elm$.shadowRoot && parentNodeId && parentNodeId !== childVNode.$hostId$) {
+      internalCall(parentVNode.$elm$, "insertBefore")(slot, internalCall(parentVNode.$elm$, "children")[0]);
+    } else {
+      internalCall(internalCall(node, "parentNode"), "insertBefore")(slot, node);
+    }
+    addSlottedNodes(slottedNodes, slotId, slotName, node, childVNode.$hostId$);
+    node.remove();
+    if (childVNode.$depth$ === "0") {
+      shadowRootNodes[childVNode.$index$] = childVNode.$elm$;
+    }
+  } else {
     const slot = childVNode.$elm$;
     const shouldMove = parentNodeId && parentNodeId !== childVNode.$hostId$ && parentVNode.$elm$.shadowRoot;
     addSlottedNodes(slottedNodes, slotId, slotName, node, shouldMove ? parentNodeId : childVNode.$hostId$);
@@ -1163,6 +1215,417 @@ var findCorrespondingNode = (node, type) => {
     sibling = sibling.nextSibling;
   } while (sibling && (sibling.nodeType !== type || !sibling.nodeValue));
   return sibling;
+};
+
+// src/utils/regular-expression.ts
+var escapeRegExpSpecialCharacters = (text) => {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+};
+
+// src/utils/shadow-css.ts
+/**
+ * @license
+ * Copyright Google Inc. All Rights Reserved.
+ *
+ * Use of this source code is governed by an MIT-style license that can be
+ * found in the LICENSE file at https://angular.io/license
+ *
+ * This file is a port of shadowCSS from `webcomponents.js` to TypeScript.
+ * https://github.com/webcomponents/webcomponentsjs/blob/4efecd7e0e/src/ShadowCSS/ShadowCSS.js
+ * https://github.com/angular/angular/blob/master/packages/compiler/src/shadow_css.ts
+ */
+var safeSelector = (selector) => {
+  const placeholders = [];
+  let index = 0;
+  selector = selector.replace(/(\[\s*part~=\s*("[^"]*"|'[^']*')\s*\])/g, (_, keep) => {
+    const replaceBy = `__part-${index}__`;
+    placeholders.push(keep);
+    index++;
+    return replaceBy;
+  });
+  selector = selector.replace(/(\[[^\]]*\])/g, (_, keep) => {
+    const replaceBy = `__ph-${index}__`;
+    placeholders.push(keep);
+    index++;
+    return replaceBy;
+  });
+  const content = selector.replace(/(:nth-[-\w]+)(\([^)]+\))/g, (_, pseudo, exp) => {
+    const replaceBy = `__ph-${index}__`;
+    placeholders.push(exp);
+    index++;
+    return pseudo + replaceBy;
+  });
+  const ss = {
+    content,
+    placeholders
+  };
+  return ss;
+};
+var restoreSafeSelector = (placeholders, content) => {
+  content = content.replace(/__part-(\d+)__/g, (_, index) => placeholders[+index]);
+  return content.replace(/__ph-(\d+)__/g, (_, index) => placeholders[+index]);
+};
+var _polyfillHost = "-shadowcsshost";
+var _polyfillSlotted = "-shadowcssslotted";
+var _polyfillHostContext = "-shadowcsscontext";
+var _parenSuffix = ")(?:\\(((?:\\([^)(]*\\)|[^)(]*)+?)\\))?([^,{]*)";
+var _cssColonHostRe = new RegExp("(" + _polyfillHost + _parenSuffix, "gim");
+var _cssColonHostContextRe = new RegExp("(" + _polyfillHostContext + _parenSuffix, "gim");
+var _cssColonSlottedRe = new RegExp("(" + _polyfillSlotted + _parenSuffix, "gim");
+var _polyfillHostNoCombinator = _polyfillHost + "-no-combinator";
+var _polyfillHostNoCombinatorRe = /-shadowcsshost-no-combinator([^\s]*)/;
+var _shadowDOMSelectorsRe = [/::shadow/g, /::content/g];
+var _safePartRe = /__part-(\d+)__/g;
+var _selectorReSuffix = "([>\\s~+[.,{:][\\s\\S]*)?$";
+var _polyfillHostRe = /-shadowcsshost/gim;
+var createSupportsRuleRe = (selector) => {
+  const safeSelector2 = escapeRegExpSpecialCharacters(selector);
+  return new RegExp(
+    // First capture group: match any context before the selector that's not inside @supports selector()
+    // Using negative lookahead to avoid matching inside @supports selector(...) condition
+    `(^|[^@]|@(?!supports\\s+selector\\s*\\([^{]*?${safeSelector2}))(${safeSelector2}\\b)`,
+    "g"
+  );
+};
+var _commentRe = /\/\*\s*[\s\S]*?\*\//g;
+var stripComments = (input) => {
+  return input.replace(_commentRe, "");
+};
+var _commentWithHashRe = /\/\*\s*#\s*source(Mapping)?URL=[\s\S]+?\*\//g;
+var extractCommentsWithHash = (input) => {
+  return input.match(_commentWithHashRe) || [];
+};
+var _ruleRe = /(\s*)([^;\{\}]+?)(\s*)((?:{%BLOCK%}?\s*;?)|(?:\s*;))/g;
+var _curlyRe = /([{}])/g;
+var _selectorPartsRe = /(^.*?[^\\])??((:+)(.*)|$)/;
+var OPEN_CURLY = "{";
+var CLOSE_CURLY = "}";
+var BLOCK_PLACEHOLDER = "%BLOCK%";
+var processRules = (input, ruleCallback) => {
+  const inputWithEscapedBlocks = escapeBlocks(input);
+  let nextBlockIndex = 0;
+  return inputWithEscapedBlocks.escapedString.replace(_ruleRe, (...m) => {
+    const selector = m[2];
+    let content = "";
+    let suffix = m[4];
+    let contentPrefix = "";
+    if (suffix && suffix.startsWith("{" + BLOCK_PLACEHOLDER)) {
+      content = inputWithEscapedBlocks.blocks[nextBlockIndex++];
+      suffix = suffix.substring(BLOCK_PLACEHOLDER.length + 1);
+      contentPrefix = "{";
+    }
+    const cssRule = {
+      selector,
+      content
+    };
+    const rule = ruleCallback(cssRule);
+    return `${m[1]}${rule.selector}${m[3]}${contentPrefix}${rule.content}${suffix}`;
+  });
+};
+var escapeBlocks = (input) => {
+  const inputParts = input.split(_curlyRe);
+  const resultParts = [];
+  const escapedBlocks = [];
+  let bracketCount = 0;
+  let currentBlockParts = [];
+  for (let partIndex = 0; partIndex < inputParts.length; partIndex++) {
+    const part = inputParts[partIndex];
+    if (part === CLOSE_CURLY) {
+      bracketCount--;
+    }
+    if (bracketCount > 0) {
+      currentBlockParts.push(part);
+    } else {
+      if (currentBlockParts.length > 0) {
+        escapedBlocks.push(currentBlockParts.join(""));
+        resultParts.push(BLOCK_PLACEHOLDER);
+        currentBlockParts = [];
+      }
+      resultParts.push(part);
+    }
+    if (part === OPEN_CURLY) {
+      bracketCount++;
+    }
+  }
+  if (currentBlockParts.length > 0) {
+    escapedBlocks.push(currentBlockParts.join(""));
+    resultParts.push(BLOCK_PLACEHOLDER);
+  }
+  const strEscapedBlocks = {
+    escapedString: resultParts.join(""),
+    blocks: escapedBlocks
+  };
+  return strEscapedBlocks;
+};
+var insertPolyfillHostInCssText = (cssText) => {
+  const supportsBlocks = [];
+  cssText = cssText.replace(/@supports\s+selector\s*\(\s*([^)]*)\s*\)/g, (_, selectorContent) => {
+    const placeholder = `__supports_${supportsBlocks.length}__`;
+    supportsBlocks.push(selectorContent);
+    return `@supports selector(${placeholder})`;
+  });
+  const _colonSlottedRe = createSupportsRuleRe("::slotted");
+  const _colonHostRe = createSupportsRuleRe(":host");
+  const _colonHostContextRe = createSupportsRuleRe(":host-context");
+  cssText = cssText.replace(_colonHostContextRe, `$1${_polyfillHostContext}`).replace(_colonHostRe, `$1${_polyfillHost}`).replace(_colonSlottedRe, `$1${_polyfillSlotted}`);
+  supportsBlocks.forEach((originalSelector, index) => {
+    cssText = cssText.replace(`__supports_${index}__`, originalSelector);
+  });
+  return cssText;
+};
+var convertColonRule = (cssText, regExp, partReplacer) => {
+  return cssText.replace(regExp, (...m) => {
+    if (m[2]) {
+      const parts = m[2].split(",");
+      const r = [];
+      for (let i2 = 0; i2 < parts.length; i2++) {
+        const p = parts[i2].trim();
+        if (!p) break;
+        r.push(partReplacer(_polyfillHostNoCombinator, p, m[3]));
+      }
+      return r.join(",");
+    } else {
+      return _polyfillHostNoCombinator + m[3];
+    }
+  });
+};
+var colonHostPartReplacer = (host, part, suffix) => {
+  return host + part.replace(_polyfillHost, "") + suffix;
+};
+var convertColonHost = (cssText) => {
+  return convertColonRule(cssText, _cssColonHostRe, colonHostPartReplacer);
+};
+var colonHostContextPartReplacer = (host, part, suffix) => {
+  if (part.indexOf(_polyfillHost) > -1) {
+    return colonHostPartReplacer(host, part, suffix);
+  } else {
+    return host + part + suffix + ", " + part + " " + host + suffix;
+  }
+};
+var convertColonSlotted = (cssText, slotScopeId) => {
+  const slotClass = "." + slotScopeId + " > ";
+  const selectors = [];
+  cssText = cssText.replace(_cssColonSlottedRe, (...m) => {
+    if (m[2]) {
+      const compound = m[2].trim();
+      const suffix = m[3];
+      const slottedSelector = slotClass + compound + suffix;
+      let prefixSelector = "";
+      for (let i2 = m[4] - 1; i2 >= 0; i2--) {
+        const char = m[5][i2];
+        if (char === "}" || char === ",") {
+          break;
+        }
+        prefixSelector = char + prefixSelector;
+      }
+      const orgSelector = (prefixSelector + slottedSelector).trim();
+      const addedSelector = `${prefixSelector.trimEnd()}${slottedSelector.trim()}`.trim();
+      if (orgSelector !== addedSelector) {
+        const updatedSelector = `${addedSelector}, ${orgSelector}`;
+        selectors.push({
+          orgSelector,
+          updatedSelector
+        });
+      }
+      return slottedSelector;
+    } else {
+      return _polyfillHostNoCombinator + m[3];
+    }
+  });
+  return {
+    selectors,
+    cssText
+  };
+};
+var convertColonHostContext = (cssText) => {
+  return convertColonRule(cssText, _cssColonHostContextRe, colonHostContextPartReplacer);
+};
+var convertShadowDOMSelectors = (cssText) => {
+  return _shadowDOMSelectorsRe.reduce((result, pattern) => result.replace(pattern, " "), cssText);
+};
+var makeScopeMatcher = (scopeSelector2) => {
+  const lre = /\[/g;
+  const rre = /\]/g;
+  scopeSelector2 = scopeSelector2.replace(lre, "\\[").replace(rre, "\\]");
+  return new RegExp("^(" + scopeSelector2 + ")" + _selectorReSuffix, "m");
+};
+var selectorNeedsScoping = (selector, scopeSelector2) => {
+  const re = makeScopeMatcher(scopeSelector2);
+  return !re.test(selector);
+};
+var injectScopingSelector = (selector, scopingSelector) => {
+  return selector.replace(_selectorPartsRe, (_, before = "", _colonGroup, colon = "", after = "") => {
+    return before + scopingSelector + colon + after;
+  });
+};
+var applySimpleSelectorScope = (selector, scopeSelector2, hostSelector) => {
+  _polyfillHostRe.lastIndex = 0;
+  if (_polyfillHostRe.test(selector)) {
+    const replaceBy = `.${hostSelector}`;
+    return selector.replace(_polyfillHostNoCombinatorRe, (_, selector2) => injectScopingSelector(selector2, replaceBy)).replace(_polyfillHostRe, replaceBy + " ");
+  }
+  return scopeSelector2 + " " + selector;
+};
+var applyStrictSelectorScope = (selector, scopeSelector2, hostSelector) => {
+  const isRe = /\[is=([^\]]*)\]/g;
+  scopeSelector2 = scopeSelector2.replace(isRe, (_, ...parts) => parts[0]);
+  const className = "." + scopeSelector2;
+  const _scopeSelectorPart = (p) => {
+    let scopedP = p.trim();
+    if (!scopedP) {
+      return "";
+    }
+    if (p.indexOf(_polyfillHostNoCombinator) > -1) {
+      scopedP = applySimpleSelectorScope(p, scopeSelector2, hostSelector);
+    } else {
+      const t = p.replace(_polyfillHostRe, "");
+      if (t.length > 0) {
+        scopedP = injectScopingSelector(t, className);
+      }
+    }
+    return scopedP;
+  };
+  const safeContent = safeSelector(selector);
+  selector = safeContent.content;
+  let scopedSelector = "";
+  let startIndex = 0;
+  let res;
+  const sep2 = /( |>|\+|~(?!=))(?=(?:[^()]*\([^()]*\))*[^()]*$)\s*/g;
+  const hasHost = selector.indexOf(_polyfillHostNoCombinator) > -1;
+  let shouldScope = !hasHost;
+  while ((res = sep2.exec(selector)) !== null) {
+    const separator = res[1];
+    const part2 = selector.slice(startIndex, res.index).trim();
+    shouldScope = shouldScope || part2.indexOf(_polyfillHostNoCombinator) > -1;
+    const scopedPart = shouldScope ? _scopeSelectorPart(part2) : part2;
+    scopedSelector += `${scopedPart} ${separator} `;
+    startIndex = sep2.lastIndex;
+  }
+  const part = selector.substring(startIndex);
+  shouldScope = !part.match(_safePartRe) && (shouldScope || part.indexOf(_polyfillHostNoCombinator) > -1);
+  scopedSelector += shouldScope ? _scopeSelectorPart(part) : part;
+  return restoreSafeSelector(safeContent.placeholders, scopedSelector);
+};
+var scopeSelector = (selector, scopeSelectorText, hostSelector, slotSelector) => {
+  return selector.split(",").map((shallowPart) => {
+    if (slotSelector && shallowPart.indexOf("." + slotSelector) > -1) {
+      return shallowPart.trim();
+    }
+    if (selectorNeedsScoping(shallowPart, scopeSelectorText)) {
+      return applyStrictSelectorScope(shallowPart, scopeSelectorText, hostSelector).trim();
+    } else {
+      return shallowPart.trim();
+    }
+  }).join(", ");
+};
+var scopeSelectors = (cssText, scopeSelectorText, hostSelector, slotSelector, commentOriginalSelector) => {
+  return processRules(cssText, (rule) => {
+    let selector = rule.selector;
+    let content = rule.content;
+    if (rule.selector[0] !== "@") {
+      selector = scopeSelector(rule.selector, scopeSelectorText, hostSelector, slotSelector);
+    } else if (rule.selector.startsWith("@media") || rule.selector.startsWith("@supports") || rule.selector.startsWith("@page") || rule.selector.startsWith("@document")) {
+      content = scopeSelectors(rule.content, scopeSelectorText, hostSelector, slotSelector);
+    }
+    const cssRule = {
+      selector: selector.replace(/\s{2,}/g, " ").trim(),
+      content
+    };
+    return cssRule;
+  });
+};
+var scopeCssText = (cssText, scopeId2, hostScopeId, slotScopeId, commentOriginalSelector) => {
+  cssText = insertPolyfillHostInCssText(cssText);
+  cssText = convertColonHost(cssText);
+  cssText = convertColonHostContext(cssText);
+  const slotted = convertColonSlotted(cssText, slotScopeId);
+  cssText = slotted.cssText;
+  cssText = convertShadowDOMSelectors(cssText);
+  if (scopeId2) {
+    cssText = scopeSelectors(cssText, scopeId2, hostScopeId, slotScopeId);
+  }
+  cssText = replaceShadowCssHost(cssText, hostScopeId);
+  cssText = cssText.replace(/>\s*\*\s+([^{, ]+)/gm, " $1 ");
+  return {
+    cssText: cssText.trim(),
+    // We need to replace the shadow CSS host string in each of these selectors since we created
+    // them prior to the replacement happening in the components CSS text.
+    slottedSelectors: slotted.selectors.map((ref) => ({
+      orgSelector: replaceShadowCssHost(ref.orgSelector, hostScopeId),
+      updatedSelector: replaceShadowCssHost(ref.updatedSelector, hostScopeId)
+    }))
+  };
+};
+var replaceShadowCssHost = (cssText, hostScopeId) => {
+  return cssText.replace(/-shadowcsshost-no-combinator/g, `.${hostScopeId}`);
+};
+var expandPartSelectors = (cssText) => {
+  const partSelectorRe = /([^\s,{][^,{]*?)::part\(\s*([^)]+?)\s*\)((?:[:.][^,{]*)*)/g;
+  return processRules(cssText, (rule) => {
+    if (rule.selector[0] === "@") {
+      return rule;
+    }
+    const selectors = rule.selector.split(",").map((sel) => {
+      const out = [sel.trim()];
+      let m;
+      while ((m = partSelectorRe.exec(sel)) !== null) {
+        const before = m[1].trimEnd();
+        const partNames = m[2].trim().split(/\s+/);
+        const after = m[3] || "";
+        const partAttr = partNames.flatMap((p) => {
+          if (!rule.selector.includes(`[part~="${p}"]`)) {
+            return [`[part~="${p}"]`];
+          }
+          return [];
+        }).join("");
+        const expanded = `${before} ${partAttr}${after}`;
+        if (!!partAttr && expanded !== sel.trim()) {
+          out.push(expanded);
+        }
+      }
+      return out.join(", ");
+    });
+    rule.selector = selectors.join(", ");
+    return rule;
+  });
+};
+var scopeCss = (cssText, scopeId2, commentOriginalSelector) => {
+  const hostScopeId = scopeId2 + "-h";
+  const slotScopeId = scopeId2 + "-s";
+  const commentsWithHash = extractCommentsWithHash(cssText);
+  cssText = stripComments(cssText);
+  const orgSelectors = [];
+  {
+    const processCommentedSelector = (rule) => {
+      const placeholder = `/*!@___${orgSelectors.length}___*/`;
+      const comment = `/*!@${rule.selector}*/`;
+      orgSelectors.push({ placeholder, comment });
+      rule.selector = placeholder + rule.selector;
+      return rule;
+    };
+    cssText = processRules(cssText, (rule) => {
+      if (rule.selector[0] !== "@") {
+        return processCommentedSelector(rule);
+      } else if (rule.selector.startsWith("@media") || rule.selector.startsWith("@supports") || rule.selector.startsWith("@page") || rule.selector.startsWith("@document")) {
+        rule.content = processRules(rule.content, processCommentedSelector);
+        return rule;
+      }
+      return rule;
+    });
+  }
+  const scoped = scopeCssText(cssText, scopeId2, hostScopeId, slotScopeId);
+  cssText = [scoped.cssText, ...commentsWithHash].join("\n");
+  {
+    orgSelectors.forEach(({ placeholder, comment }) => {
+      cssText = cssText.replace(placeholder, comment);
+    });
+  }
+  scoped.slottedSelectors.forEach((slottedSelector) => {
+    const regex = new RegExp(escapeRegExpSpecialCharacters(slottedSelector.orgSelector) + "(?=\\s*[,{]|$)", "g");
+    cssText = cssText.replace(regex, slottedSelector.updatedSelector);
+  });
+  cssText = expandPartSelectors(cssText);
+  return cssText;
 };
 
 // src/utils/remote-value.ts
@@ -1426,6 +1889,9 @@ function sortedAttrNames(attrNames) {
     attrNames
   );
 }
+
+// src/runtime/vdom/vdom-render.ts
+var scopeId;
 var contentRef;
 var hostTagName;
 var useNativeShadowDom = false;
@@ -1470,6 +1936,9 @@ var createElm = (oldParentVNode, newParentVNode, childIndex) => {
     );
     {
       updateElement(null, newVNode2, isSvgMode);
+    }
+    if (isDef(scopeId) && elm["s-si"] !== scopeId) {
+      elm.classList.add(elm["s-si"] = scopeId);
     }
     if (newVNode2.$children$) {
       const appendTarget = newVNode2.$tag$ === "template" ? elm.content : elm;
@@ -1549,6 +2018,9 @@ var putBackInOriginalLocation = (parentElm, recursive) => {
 var addVnodes = (parentElm, before, parentVNode, vnodes, startIdx, endIdx) => {
   let containerElm = parentElm["s-cr"] && parentElm["s-cr"].parentNode || parentElm;
   let childNode;
+  if (containerElm.shadowRoot && containerElm.tagName === hostTagName) {
+    containerElm = containerElm.shadowRoot;
+  }
   if (parentVNode.$tag$ === "template") {
     containerElm = containerElm.content;
   }
@@ -1834,8 +2306,11 @@ var renderVdom = (hostRef, renderFnResults, isInitialLoad = false) => {
   rootVnode.$tag$ = null;
   rootVnode.$flags$ |= 4 /* isHost */;
   hostRef.$vnode$ = rootVnode;
-  rootVnode.$elm$ = oldVNode.$elm$ = hostElm;
-  useNativeShadowDom = supportsShadow;
+  rootVnode.$elm$ = oldVNode.$elm$ = hostElm.shadowRoot || hostElm ;
+  {
+    scopeId = hostElm["s-sc"];
+  }
+  useNativeShadowDom = !!(cmpMeta.$flags$ & 1 /* shadowDomEncapsulation */) && !(cmpMeta.$flags$ & 128 /* shadowNeedsScopedCss */);
   {
     contentRef = hostElm["s-cr"];
     checkSlotFallbackVisibility = false;
@@ -2289,6 +2764,13 @@ var initializeComponent = async (elm, hostRef, cmpMeta, hmrVersionId) => {
         const scopeId2 = getScopeId(cmpMeta);
         if (!styles.has(scopeId2) || BUILD.hotModuleReplacement) {
           const endRegisterStyles = createTime("registerStyles", cmpMeta.$tagName$);
+          {
+            if (cmpMeta.$flags$ & 128 /* shadowNeedsScopedCss */) {
+              style = scopeCss(style, scopeId2);
+            } else if (needsScopedSSR()) {
+              style = expandPartSelectors(style);
+            }
+          }
           registerStyle(scopeId2, style);
           endRegisterStyles();
         }
@@ -2333,6 +2815,10 @@ var connectedCallback = (elm) => {
       {
         hostId = elm.getAttribute(HYDRATE_ID);
         if (hostId) {
+          if (cmpMeta.$flags$ & 1 /* shadowDomEncapsulation */) {
+            const scopeId2 = addStyle(elm.shadowRoot, cmpMeta);
+            elm.classList.remove(scopeId2 + "-h", scopeId2 + "-s");
+          }
           initializeClientHydrate(elm, cmpMeta.$tagName$, hostId, hostRef);
         }
       }
@@ -4254,6 +4740,7 @@ function hydrateApp(win2, opts, results, afterHydrate, resolve) {
   const orgDocumentCreateElement = win2.document.createElement;
   const orgDocumentCreateElementNS = win2.document.createElementNS;
   const resolved2 = Promise.resolve();
+  setScopedSSR(opts);
   let tmrId;
   let ranCompleted = false;
   function hydratedComplete() {
@@ -4583,7 +5070,6 @@ var plt = {
   rel: (el, eventName, listener, opts) => el.removeEventListener(eventName, listener, opts),
   ce: (eventName, opts) => new win.CustomEvent(eventName, opts)
 };
-var supportsShadow = BUILD.shadowDom;
 var getHostRef = (ref) => {
   if (ref.__stencil__getHostRef) {
     return ref.__stencil__getHostRef();
@@ -4617,6 +5103,11 @@ var registerHost = (elm, cmpMeta) => {
   return hostRef;
 };
 var styles = /* @__PURE__ */ new Map();
+var setScopedSSR = (opts) => {
+  scopedSSR = opts.serializeShadowRoot !== false && opts.serializeShadowRoot !== "declarative-shadow-dom";
+};
+var needsScopedSSR = () => scopedSSR;
+var scopedSSR = false;
 
 const deAlertCss = () => `.de-alert{background-color:var(--de-alert-bg, #f8d7da);color:var(--de-alert-color, #721c24);padding:1em;border:1px solid var(--de-alert-border, #f5c6cb);border-radius:4px}.de-alert__content{margin-top:0.5em}`;
 
@@ -4641,6 +5132,29 @@ class DeAlert {
     }; }
 }
 
+const deAlertShadowCss = () => `.de-alert{background-color:var(--de-alert-bg, #f8d7da);color:var(--de-alert-color, #721c24);padding:1em;border:1px solid var(--de-alert-border, #f5c6cb);border-radius:4px}.de-alert__content{margin-top:0.5em}`;
+
+class DeAlertShadow {
+    constructor(hostRef) {
+        registerInstance(this, hostRef);
+    }
+    heading = 'Alert';
+    render() {
+        return (hAsync("div", { key: '85a1c15d43c07cbd078dea886c9bcbd89e276ac4', class: "de-alert" }, hAsync("strong", { key: '0ca812396c3115dfada2b5e48088a4ee33ca8133' }, this.heading), hAsync("div", { key: '361de6e72e67c35435ca2bf7282220c9a6bb1df3', class: "de-alert__content" }, hAsync("slot", { key: '876707ebf9c9192e2744d89b659ba6d119685fd1' })), hAsync("div", { key: 'e946ca27307b679f86fac18c2060cfb6d5354f9b', class: "de-alert__footer" }, hAsync("slot", { key: '7d7337816f1ff6afe1f6c2c014ab0fa9e0ed5c29', name: "footer" }))));
+    }
+    static get style() { return deAlertShadowCss(); }
+    static get cmpMeta() { return {
+        "$flags$": 777,
+        "$tagName$": "de-alert-shadow",
+        "$members$": {
+            "heading": [1]
+        },
+        "$listeners$": undefined,
+        "$lazyBundleId$": "-",
+        "$attrsToReflect$": []
+    }; }
+}
+
 const deButtonCss = () => `.de-button{background-color:var(--de-button-bg, #007bff);display:inline-block;padding:0.5em 1em;border:none;border-radius:4px;color:white;font-size:1rem;cursor:pointer}.de-button--sm{font-size:0.875rem;padding:0.25em 0.5em}.de-button--lg{font-size:1.25rem;padding:0.75em 1.5em}`;
 
 class DeButton {
@@ -4649,7 +5163,7 @@ class DeButton {
     }
     size = 'md';
     render() {
-        return (hAsync("button", { key: 'ec0c8f1fd1774fd83b3b7ddb362f1d0564d1b4a3', class: `de-button de-button--${this.size}` }, hAsync("slot", { key: 'faf494d1e3a97c0eaf71ac4a9c4f93d5e8271ba6' })));
+        return (hAsync("button", { key: 'ad945f8c136d2e121ebc5a62878bb3cc6af569b6', class: `de-button de-button--${this.size}` }, hAsync("slot", { key: '60d2657bcb6d6e8163609659f09729adbc063e5d' })));
     }
     static get style() { return deButtonCss(); }
     static get cmpMeta() { return {
@@ -4664,9 +5178,34 @@ class DeButton {
     }; }
 }
 
+const deButtonShadowCss = () => `.de-button{background-color:var(--de-button-bg, #007bff);display:inline-block;padding:0.5em 1em;border:none;border-radius:4px;color:white;font-size:1rem;cursor:pointer}.de-button--sm{font-size:0.875rem;padding:0.25em 0.5em}.de-button--lg{font-size:1.25rem;padding:0.75em 1.5em}`;
+
+class DeButtonShadow {
+    constructor(hostRef) {
+        registerInstance(this, hostRef);
+    }
+    size = 'md';
+    render() {
+        return (hAsync("button", { key: '716325165d9427ee33b2f419c25c1d2b07e3ed8c', class: `de-button de-button--${this.size}` }, hAsync("slot", { key: '674d1bb108b53070cbd7c0104ef79db83c28abb4' })));
+    }
+    static get style() { return deButtonShadowCss(); }
+    static get cmpMeta() { return {
+        "$flags$": 777,
+        "$tagName$": "de-button-shadow",
+        "$members$": {
+            "size": [1]
+        },
+        "$listeners$": undefined,
+        "$lazyBundleId$": "-",
+        "$attrsToReflect$": []
+    }; }
+}
+
 registerComponents([
   DeAlert,
+  DeAlertShadow,
   DeButton,
+  DeButtonShadow,
 ]);
 
 exports.hydrateApp = hydrateApp;

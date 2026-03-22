@@ -12,7 +12,19 @@ export namespace Components {
          */
         "heading": string;
     }
+    interface DeAlertShadow {
+        /**
+          * @default 'Alert'
+         */
+        "heading": string;
+    }
     interface DeButton {
+        /**
+          * @default 'md'
+         */
+        "size": 'sm' | 'md' | 'lg';
+    }
+    interface DeButtonShadow {
         /**
           * @default 'md'
          */
@@ -26,19 +38,39 @@ declare global {
         prototype: HTMLDeAlertElement;
         new (): HTMLDeAlertElement;
     };
+    interface HTMLDeAlertShadowElement extends Components.DeAlertShadow, HTMLStencilElement {
+    }
+    var HTMLDeAlertShadowElement: {
+        prototype: HTMLDeAlertShadowElement;
+        new (): HTMLDeAlertShadowElement;
+    };
     interface HTMLDeButtonElement extends Components.DeButton, HTMLStencilElement {
     }
     var HTMLDeButtonElement: {
         prototype: HTMLDeButtonElement;
         new (): HTMLDeButtonElement;
     };
+    interface HTMLDeButtonShadowElement extends Components.DeButtonShadow, HTMLStencilElement {
+    }
+    var HTMLDeButtonShadowElement: {
+        prototype: HTMLDeButtonShadowElement;
+        new (): HTMLDeButtonShadowElement;
+    };
     interface HTMLElementTagNameMap {
         "de-alert": HTMLDeAlertElement;
+        "de-alert-shadow": HTMLDeAlertShadowElement;
         "de-button": HTMLDeButtonElement;
+        "de-button-shadow": HTMLDeButtonShadowElement;
     }
 }
 declare namespace LocalJSX {
     interface DeAlert {
+        /**
+          * @default 'Alert'
+         */
+        "heading"?: string;
+    }
+    interface DeAlertShadow {
         /**
           * @default 'Alert'
          */
@@ -50,17 +82,31 @@ declare namespace LocalJSX {
          */
         "size"?: 'sm' | 'md' | 'lg';
     }
+    interface DeButtonShadow {
+        /**
+          * @default 'md'
+         */
+        "size"?: 'sm' | 'md' | 'lg';
+    }
 
     interface DeAlertAttributes {
+        "heading": string;
+    }
+    interface DeAlertShadowAttributes {
         "heading": string;
     }
     interface DeButtonAttributes {
         "size": 'sm' | 'md' | 'lg';
     }
+    interface DeButtonShadowAttributes {
+        "size": 'sm' | 'md' | 'lg';
+    }
 
     interface IntrinsicElements {
         "de-alert": Omit<DeAlert, keyof DeAlertAttributes> & { [K in keyof DeAlert & keyof DeAlertAttributes]?: DeAlert[K] } & { [K in keyof DeAlert & keyof DeAlertAttributes as `attr:${K}`]?: DeAlertAttributes[K] } & { [K in keyof DeAlert & keyof DeAlertAttributes as `prop:${K}`]?: DeAlert[K] };
+        "de-alert-shadow": Omit<DeAlertShadow, keyof DeAlertShadowAttributes> & { [K in keyof DeAlertShadow & keyof DeAlertShadowAttributes]?: DeAlertShadow[K] } & { [K in keyof DeAlertShadow & keyof DeAlertShadowAttributes as `attr:${K}`]?: DeAlertShadowAttributes[K] } & { [K in keyof DeAlertShadow & keyof DeAlertShadowAttributes as `prop:${K}`]?: DeAlertShadow[K] };
         "de-button": Omit<DeButton, keyof DeButtonAttributes> & { [K in keyof DeButton & keyof DeButtonAttributes]?: DeButton[K] } & { [K in keyof DeButton & keyof DeButtonAttributes as `attr:${K}`]?: DeButtonAttributes[K] } & { [K in keyof DeButton & keyof DeButtonAttributes as `prop:${K}`]?: DeButton[K] };
+        "de-button-shadow": Omit<DeButtonShadow, keyof DeButtonShadowAttributes> & { [K in keyof DeButtonShadow & keyof DeButtonShadowAttributes]?: DeButtonShadow[K] } & { [K in keyof DeButtonShadow & keyof DeButtonShadowAttributes as `attr:${K}`]?: DeButtonShadowAttributes[K] } & { [K in keyof DeButtonShadow & keyof DeButtonShadowAttributes as `prop:${K}`]?: DeButtonShadow[K] };
     }
 }
 export { LocalJSX as JSX };
@@ -68,7 +114,9 @@ declare module "@stencil/core" {
     export namespace JSX {
         interface IntrinsicElements {
             "de-alert": LocalJSX.IntrinsicElements["de-alert"] & JSXBase.HTMLAttributes<HTMLDeAlertElement>;
+            "de-alert-shadow": LocalJSX.IntrinsicElements["de-alert-shadow"] & JSXBase.HTMLAttributes<HTMLDeAlertShadowElement>;
             "de-button": LocalJSX.IntrinsicElements["de-button"] & JSXBase.HTMLAttributes<HTMLDeButtonElement>;
+            "de-button-shadow": LocalJSX.IntrinsicElements["de-button-shadow"] & JSXBase.HTMLAttributes<HTMLDeButtonShadowElement>;
         }
     }
 }

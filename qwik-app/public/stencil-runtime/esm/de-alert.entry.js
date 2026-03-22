@@ -1,4 +1,4 @@
-import { r as registerInstance, h } from './index-OzFPMOCw.js';
+import { r as registerInstance, h } from './index-BEXmMfjP.js';
 
 const deAlertCss = () => `.de-alert{background-color:var(--de-alert-bg, #f8d7da);color:var(--de-alert-color, #721c24);padding:1em;border:1px solid var(--de-alert-border, #f5c6cb);border-radius:4px}.de-alert__content{margin-top:0.5em}`;
 
