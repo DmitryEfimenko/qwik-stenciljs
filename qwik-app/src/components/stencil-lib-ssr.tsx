@@ -13,4 +13,3 @@ import { defineCustomElements, renderToString } from './stencil-js-utils';
 export const StencilJsLibSSRComponent = createStencilSSRComponent($(renderToString));
 
 export const useStencilClientSetup = createStencilClientSetup($(defineCustomElements));
-

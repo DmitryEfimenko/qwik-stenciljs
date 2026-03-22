@@ -8,6 +8,14 @@ function isSerializablePrimitive(value: unknown) {
   );
 }
 
+/**
+ * Updates a Stencil custom element's properties and attributes.
+ * Serializable primitives are set as attributes; complex objects are set as properties.
+ * Event handlers (keys starting with 'on' or '$') are skipped.
+ *
+ * @param el - The DOM element to update (usually a Stencil custom element)
+ * @param props - Record of property names and values to apply
+ */
 export function updateStencilElementProps(
   el: Element | undefined | null,
   props: Record<string, unknown> | undefined,

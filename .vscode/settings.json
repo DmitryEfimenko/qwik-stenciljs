@@ -3,6 +3,8 @@
     "/^cd c:\\\\Source\\\\Random\\\\qwik-stenciljs\\\\qwik-app; node verify-styles\\.js$/": {
       "approve": true,
       "matchCommandLine": true
-    }
+    },
+    "Rename-Item": true,
+    "npm run build": true
   }
 }

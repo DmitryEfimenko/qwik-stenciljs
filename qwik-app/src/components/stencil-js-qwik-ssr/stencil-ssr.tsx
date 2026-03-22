@@ -17,27 +17,36 @@ import { collectStencilSsrStyles, createStencilSsrStyleStore } from './styles-co
 const INLINE_EMITTED_KEY = '__stencil_ssr_inline_emitted__';
 
 /**
+ * Retrieves or creates a request-scoped set of emitted style keys.
+ * This ensures styles are deduplicated per request when the same component
+ * is rendered multiple times (e.g., in a list).
+ */
+function getOrInitRequestInlineEmittedKeys(): Set<string> {
+  const reqEnv = (
+    globalThis as { qcAsyncRequestStore?: { getStore?: () => unknown } }
+  ).qcAsyncRequestStore?.getStore?.() as { sharedMap: Map<string, unknown> } | undefined;
+
+  if (!reqEnv?.sharedMap || !(reqEnv.sharedMap instanceof Map)) {
+    return new Set<string>();
+  }
+
+  const existing = reqEnv.sharedMap.get(INLINE_EMITTED_KEY) as Set<string> | undefined;
+  if (existing) {
+    return existing;
+  }
+
+  const created = new Set<string>();
+  reqEnv.sharedMap.set(INLINE_EMITTED_KEY, created);
+  return created;
+}
+
+/**
  * Extracts styles from `renderResult` and returns them as a concatenated
  * `<style>` HTML string, deduplicating across multiple renders in the same
  * request. Returns an empty string when there is nothing new to emit.
  */
 function buildInlineStylesHtml(renderResult: Awaited<ReturnType<StencilRenderToString>>, tagName?: string): string {
-  const reqEnv = (
-    globalThis as { qcAsyncRequestStore?: { getStore?: () => unknown } }
-  ).qcAsyncRequestStore?.getStore?.() as { sharedMap: Map<string, unknown> } | undefined;
-
-  let emittedKeys: Set<string>;
-  if (reqEnv?.sharedMap instanceof Map) {
-    const existing = reqEnv.sharedMap.get(INLINE_EMITTED_KEY) as Set<string> | undefined;
-    if (existing) {
-      emittedKeys = existing;
-    } else {
-      emittedKeys = new Set<string>();
-      reqEnv.sharedMap.set(INLINE_EMITTED_KEY, emittedKeys);
-    }
-  } else {
-    emittedKeys = new Set<string>();
-  }
+  const emittedKeys = getOrInitRequestInlineEmittedKeys();
 
   const tempStore = createStencilSsrStyleStore();
   collectStencilSsrStyles(renderResult, tempStore, tagName);
@@ -77,6 +86,7 @@ type SlotEntry = { marker: string; name?: string };
  * Locates all slot markers present in `html`, sorted by their position.
  * Returns entries only for markers that actually appear in the output
  * (Stencil may omit a slot outlet if it has no matching slot element).
+ * Marker positions are pre-computed to avoid redundant string searches.
  */
 function collectSlotEntries(html: string, namedSlots: string[]): SlotEntry[] {
   const candidates: SlotEntry[] = [
@@ -84,11 +94,29 @@ function collectSlotEntries(html: string, namedSlots: string[]): SlotEntry[] {
     ...namedSlots.map((s) => ({ marker: namedSlotMarker(s), name: s })),
   ];
 
+  // Pre-compute marker positions and filter to those present in HTML
+  const markerPositions = new Map<string, number>();
+  for (const candidate of candidates) {
+    const pos = html.indexOf(candidate.marker);
+    if (pos !== -1) {
+      markerPositions.set(candidate.marker, pos);
+    }
+  }
+
+  // Filter candidates to present markers and sort by position
   return candidates
-    .filter((e) => html.includes(e.marker))
-    .sort((a, b) => html.indexOf(a.marker) - html.indexOf(b.marker));
+    .filter((c) => markerPositions.has(c.marker))
+    .sort((a, b) => markerPositions.get(a.marker)! - markerPositions.get(b.marker)!);
 }
 
+/**
+ * Creates a Qwik component that renders a Stencil component with SSR support.
+ * Handles slot projection, prop synchronization, and style deduplication.
+ *
+ * @param stencilRenderToStringQrl - QRL reference to Stencil's renderToString function
+ * @param options - Optional callbacks for SSR lifecycle events
+ * @returns A Qwik component that can be used like any other Qwik component
+ */
 export function createStencilSSRComponent(
   stencilRenderToStringQrl: QRL<StencilRenderToString>,
   options?: {
