@@ -1,10 +1,14 @@
 import { $, component$, useSignal } from "@builder.io/qwik";
 import { type DocumentHead } from "@builder.io/qwik-city";
-import { StencilJsLibSSRComponent, useStencilClientSetup } from '../components/stencil-lib-ssr';
+import {
+  DeAlert,
+  DeButton,
+  useGeneratedStencilClientSetup,
+} from '../components/generated/stencil';
 
 export default component$(() => {
   const size = useSignal<'md' | 'lg'>('md');
-  useStencilClientSetup();
+  useGeneratedStencilClientSetup();
 
   const changeSize$ = $(() => {
     size.value = size.value === 'md' ? 'lg' : 'md';
@@ -29,9 +33,9 @@ export default component$(() => {
           Click handler toggles size on all buttons on the page.
         </p>
 
-        <StencilJsLibSSRComponent tagName='de-button' props={{ size: size.value }} onClick$={changeSize$}>
+        <DeButton size={size.value} onClick$={changeSize$}>
           Rendered via SSR
-        </StencilJsLibSSRComponent>
+        </DeButton>
       </div>
 
       <hr />
@@ -42,13 +46,13 @@ export default component$(() => {
           The slot contains another server-side rendered button.
         </p>
 
-        <StencilJsLibSSRComponent tagName='de-alert' props={{ heading: 'V2 Alert' }} slots={['footer']}>
+        <DeAlert heading='V2 Alert'>
           <p>Body content</p>
-          <StencilJsLibSSRComponent tagName='de-button' props={{ size: size.value }} onClick$={changeSize$}>
+          <DeButton size={size.value} onClick$={changeSize$}>
             Rendered via SSR
-          </StencilJsLibSSRComponent>
+          </DeButton>
           <span q:slot="footer">Footer content (named slot)</span>
-        </StencilJsLibSSRComponent>
+        </DeAlert>
       </div>
     </>
   );
