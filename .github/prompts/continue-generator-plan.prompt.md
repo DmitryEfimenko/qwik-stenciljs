@@ -2,7 +2,7 @@
 name: 'Continue Generator Plan'
 description: 'Pick the next unfinished task from the Stencil-to-Qwik generator plan and execute it while keeping plan and findings up to date'
 argument-hint: 'Optional extra constraints or focus for the next task'
-agent: 'agent'
+agent: 'Plan'
 model: 'Auto'
 ---
 
