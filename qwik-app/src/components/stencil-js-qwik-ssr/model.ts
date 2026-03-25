@@ -1,3 +1,5 @@
+import { QRL } from '@builder.io/qwik';
+
 export interface StencilRenderToStringOptions {
   prettyHtml?: boolean;
   removeScripts?: boolean;
@@ -44,6 +46,12 @@ export type StencilRenderToString = (
 export interface StencilSSRProps {
   tagName: string;
   props?: Record<string, unknown>;
+  /**
+   * Optional custom-event names exposed by the Stencil component.
+   * Used by the runtime bridge to attach listeners even when handlers
+   * do not follow onX$ naming or use directive-based syntax.
+   */
+  events?: Record<string, QRL<(...args: any[]) => void>>;
   /**
    * Names of the named slots this Stencil component accepts (e.g. `['footer']`).
    * Children with the matching `q:slot` attribute will be projected into them.

@@ -7,6 +7,8 @@ export interface DeButtonShadowProps {
 }
 
 export const DeButtonShadow = component$<DeButtonShadowProps>((props) => {
+  const isEventBindingKey = (key: string) =>
+    /^on[A-Z].*$$/.test(key) || key.includes(':');
   const eventProps: Record<string, unknown> = {};
   const elementProps: Record<string, unknown> = {};
 
@@ -15,7 +17,7 @@ export const DeButtonShadow = component$<DeButtonShadowProps>((props) => {
       continue;
     }
 
-    if (key.startsWith('on') || key.startsWith('$')) {
+    if (isEventBindingKey(key)) {
       eventProps[key] = value;
       continue;
     }
@@ -23,10 +25,12 @@ export const DeButtonShadow = component$<DeButtonShadowProps>((props) => {
     elementProps[key] = value;
   }
 
+  const mappedEvents = undefined;
   return (
     <GeneratedStencilComponent
       tagName="de-button-shadow"
       props={elementProps}
+      events={mappedEvents}
       slots={undefined}
       {...eventProps}
     >

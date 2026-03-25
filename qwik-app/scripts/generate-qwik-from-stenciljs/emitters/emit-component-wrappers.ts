@@ -94,6 +94,36 @@ function emitSlotList(component: MetadataComponent): string {
   return `[${slots}]`;
 }
 
+function emitEventsMapBlock(component: MetadataComponent): string {
+  const emittedEventProps = new Set<string>();
+  const assignments: string[] = [];
+
+  for (const event of component.events) {
+    const eventName = event.name.trim();
+    if (eventName.length === 0) {
+      continue;
+    }
+
+    const eventPropName = toEventPropName(eventName);
+    if (emittedEventProps.has(eventPropName)) {
+      continue;
+    }
+
+    emittedEventProps.add(eventPropName);
+    assignments.push(`  if (props.${eventPropName}) {`);
+    assignments.push(`    events['${eventName}'] = props.${eventPropName};`);
+    assignments.push('  }');
+  }
+
+  if (assignments.length === 0) {
+    return '  const mappedEvents = undefined;';
+  }
+
+  return `  const events: Record<string, QRL<(...args: any[]) => void>> = {};
+${assignments.join('\n')}
+  const mappedEvents = Object.keys(events).length > 0 ? events : undefined;`;
+}
+
 function emitWrapperSource(component: MetadataComponent): string {
   const wrapperName = getWrapperName(component);
   const propsTypeName = `${wrapperName}Props`;
@@ -120,7 +150,9 @@ function emitWrapperSource(component: MetadataComponent): string {
 
   const childrenBlock = slotRender.length > 0 ? `\n${slotRender}\n` : '';
 
-  const splitPropsBlock = `  const eventProps: Record<string, unknown> = {};
+  const splitPropsBlock = `  const isEventBindingKey = (key: string) =>
+    /^on[A-Z].*\$$/.test(key) || key.includes(':');
+  const eventProps: Record<string, unknown> = {};
   const elementProps: Record<string, unknown> = {};
 
   for (const [key, value] of Object.entries(props as Record<string, unknown>)) {
@@ -128,7 +160,7 @@ function emitWrapperSource(component: MetadataComponent): string {
       continue;
     }
 
-    if (key.startsWith('on') || key.startsWith('$')) {
+    if (isEventBindingKey(key)) {
       eventProps[key] = value;
       continue;
     }
@@ -146,10 +178,12 @@ ${emitPropSignature(component)}
 
 export const ${wrapperName} = component$<${propsTypeName}>((props) => {
 ${splitPropsBlock}
+${emitEventsMapBlock(component)}
   return (
     <GeneratedStencilComponent
       tagName="${component.tagName}"
       props={elementProps}
+      events={mappedEvents}
       slots={${slotList}}
       {...eventProps}
     >${childrenBlock}    </GeneratedStencilComponent>

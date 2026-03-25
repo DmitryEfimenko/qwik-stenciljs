@@ -1747,6 +1747,25 @@ var parsePropertyValue = (propValue, propType, isFormAssociated) => {
   }
   return propValue;
 };
+var getElement = (ref) => {
+  var _a2;
+  return (_a2 = getHostRef(ref)) == null ? void 0 : _a2.$hostElement$ ;
+};
+
+// src/runtime/event-emitter.ts
+var createEvent = (ref, name, flags) => {
+  const elm = getElement(ref);
+  return {
+    emit: (detail) => {
+      return emitEvent(elm, name, {
+        bubbles: true,
+        composed: true,
+        cancelable: true,
+        detail
+      });
+    }
+  };
+};
 var emitEvent = (elm, name, opts) => {
   const ev = plt.ce(name, opts);
   elm.dispatchEvent(ev);
@@ -1757,7 +1776,7 @@ var setAccessor = (elm, memberName, oldValue, newValue, isSvg, flags, initialRen
     return;
   }
   let isProp = isMemberInElement(elm, memberName);
-  memberName.toLowerCase();
+  let ln = memberName.toLowerCase();
   if (memberName === "class") {
     const classList = elm.classList;
     const oldClasses = parseClassList(oldValue);
@@ -1774,7 +1793,25 @@ var setAccessor = (elm, memberName, oldValue, newValue, isSvg, flags, initialRen
       classList.remove(...oldClasses.filter((c) => c && !newClasses.includes(c)));
       classList.add(...newClasses.filter((c) => c && !oldClasses.includes(c)));
     }
-  } else if (memberName === "key") ; else if (memberName[0] === "a" && memberName.startsWith("attr:")) {
+  } else if (memberName === "key") ; else if ((!isProp ) && memberName[0] === "o" && memberName[1] === "n") {
+    if (memberName[2] === "-") {
+      memberName = memberName.slice(3);
+    } else if (isMemberInElement(win, ln)) {
+      memberName = ln.slice(2);
+    } else {
+      memberName = ln[2] + memberName.slice(3);
+    }
+    if (oldValue || newValue) {
+      const capture = memberName.endsWith(CAPTURE_EVENT_SUFFIX);
+      memberName = memberName.replace(CAPTURE_EVENT_REGEX, "");
+      if (oldValue) {
+        plt.rel(elm, memberName, oldValue, capture);
+      }
+      if (newValue) {
+        plt.ael(elm, memberName, newValue, capture);
+      }
+    }
+  } else if (memberName[0] === "a" && memberName.startsWith("attr:")) {
     const propName = memberName.slice(5);
     let attrName;
     {
@@ -1849,6 +1886,8 @@ var parseClassList = (value) => {
   }
   return value.split(parseClassListRegex);
 };
+var CAPTURE_EVENT_SUFFIX = "Capture";
+var CAPTURE_EVENT_REGEX = new RegExp(CAPTURE_EVENT_SUFFIX + "$");
 
 // src/runtime/vdom/update-element.ts
 var updateElement = (oldVnode, newVnode, isSvgMode2, isInitialRender) => {
@@ -5162,10 +5201,28 @@ const deButtonCss = () => `.de-button{background-color:var(--de-button-bg, #007b
 class DeButton {
     constructor(hostRef) {
         registerInstance(this, hostRef);
+        this.tripleClick = createEvent(this, "tripleClick");
     }
     size = 'md';
+    tripleClick;
+    clicks = 0;
+    lastClickTime = 0;
+    handleClick(event) {
+        const now = Date.now();
+        const timeBetweenClicks = now - this.lastClickTime;
+        this.lastClickTime = now;
+        if (timeBetweenClicks > 500) {
+            this.clicks = 0;
+        }
+        this.clicks += 1;
+        if (this.clicks === 3) {
+            console.log('StencilJS: tripleClick.emit');
+            this.tripleClick.emit(event);
+            this.clicks = 0;
+        }
+    }
     render() {
-        return (hAsync("button", { key: 'ad945f8c136d2e121ebc5a62878bb3cc6af569b6', class: `de-button de-button--${this.size}` }, hAsync("slot", { key: '60d2657bcb6d6e8163609659f09729adbc063e5d' })));
+        return (hAsync("button", { key: 'e06ea9de8377b4e0b9cc0b04b467b7a95aa92f78', class: `de-button de-button--${this.size}`, onClick: (event) => this.handleClick(event) }, hAsync("slot", { key: '75d10c4cf8365b35d9d6219163882a9fed4bee61' })));
     }
     static get style() { return deButtonCss(); }
     static get cmpMeta() { return {

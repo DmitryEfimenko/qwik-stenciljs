@@ -7,6 +7,8 @@ export interface DeAlertProps {
 }
 
 export const DeAlert = component$<DeAlertProps>((props) => {
+  const isEventBindingKey = (key: string) =>
+    /^on[A-Z].*$$/.test(key) || key.includes(':');
   const eventProps: Record<string, unknown> = {};
   const elementProps: Record<string, unknown> = {};
 
@@ -15,7 +17,7 @@ export const DeAlert = component$<DeAlertProps>((props) => {
       continue;
     }
 
-    if (key.startsWith('on') || key.startsWith('$')) {
+    if (isEventBindingKey(key)) {
       eventProps[key] = value;
       continue;
     }
@@ -23,10 +25,12 @@ export const DeAlert = component$<DeAlertProps>((props) => {
     elementProps[key] = value;
   }
 
+  const mappedEvents = undefined;
   return (
     <GeneratedStencilComponent
       tagName="de-alert"
       props={elementProps}
+      events={mappedEvents}
       slots={['footer']}
       {...eventProps}
     >

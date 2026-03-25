@@ -131,6 +131,20 @@
               "readonly": true,
               "attribute": "size"
             }
+          ],
+          "events": [
+            {
+              "name": "tripleClick",
+              "type": {
+                "text": "CustomEvent<MouseEvent>",
+                "references": [
+                  {
+                    "name": "MouseEvent",
+                    "package": "global:"
+                  }
+                ]
+              }
+            }
           ]
         }
       ],

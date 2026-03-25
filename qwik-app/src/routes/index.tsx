@@ -1,9 +1,8 @@
 import { $, component$, useSignal } from "@builder.io/qwik";
 import { type DocumentHead } from "@builder.io/qwik-city";
 import {
-  DeAlert,
   DeButton,
-  useGeneratedStencilClientSetup,
+  useGeneratedStencilClientSetup
 } from '../components/generated/stencil';
 
 export default component$(() => {
@@ -33,14 +32,14 @@ export default component$(() => {
           Click handler toggles size on all buttons on the page.
         </p>
 
-        <DeButton size={size.value} onClick$={changeSize$}>
+        <DeButton size={size.value} onClick$={changeSize$} onTripleClick$={() => { console.log('triple') }}>
           Rendered via SSR
         </DeButton>
       </div>
 
       <hr />
 
-      <div>
+      {/* <div>
         <p>
           Server-side rendered alert with slotted content.<br />
           The slot contains another server-side rendered button.
@@ -53,7 +52,7 @@ export default component$(() => {
           </DeButton>
           <span q:slot="footer">Footer content (named slot)</span>
         </DeAlert>
-      </div>
+      </div> */}
     </>
   );
 });

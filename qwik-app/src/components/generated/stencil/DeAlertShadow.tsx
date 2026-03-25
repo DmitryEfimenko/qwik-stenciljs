@@ -7,6 +7,8 @@ export interface DeAlertShadowProps {
 }
 
 export const DeAlertShadow = component$<DeAlertShadowProps>((props) => {
+  const isEventBindingKey = (key: string) =>
+    /^on[A-Z].*$$/.test(key) || key.includes(':');
   const eventProps: Record<string, unknown> = {};
   const elementProps: Record<string, unknown> = {};
 
@@ -15,7 +17,7 @@ export const DeAlertShadow = component$<DeAlertShadowProps>((props) => {
       continue;
     }
 
-    if (key.startsWith('on') || key.startsWith('$')) {
+    if (isEventBindingKey(key)) {
       eventProps[key] = value;
       continue;
     }
@@ -23,10 +25,12 @@ export const DeAlertShadow = component$<DeAlertShadowProps>((props) => {
     elementProps[key] = value;
   }
 
+  const mappedEvents = undefined;
   return (
     <GeneratedStencilComponent
       tagName="de-alert-shadow"
       props={elementProps}
+      events={mappedEvents}
       slots={['footer']}
       {...eventProps}
     >

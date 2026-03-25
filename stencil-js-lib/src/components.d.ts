@@ -31,6 +31,10 @@ export namespace Components {
         "size": 'sm' | 'md' | 'lg';
     }
 }
+export interface DeButtonCustomEvent<T> extends CustomEvent<T> {
+    detail: T;
+    target: HTMLDeButtonElement;
+}
 declare global {
     interface HTMLDeAlertElement extends Components.DeAlert, HTMLStencilElement {
     }
@@ -44,7 +48,18 @@ declare global {
         prototype: HTMLDeAlertShadowElement;
         new (): HTMLDeAlertShadowElement;
     };
+    interface HTMLDeButtonElementEventMap {
+        "tripleClick": MouseEvent;
+    }
     interface HTMLDeButtonElement extends Components.DeButton, HTMLStencilElement {
+        addEventListener<K extends keyof HTMLDeButtonElementEventMap>(type: K, listener: (this: HTMLDeButtonElement, ev: DeButtonCustomEvent<HTMLDeButtonElementEventMap[K]>) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLDeButtonElementEventMap>(type: K, listener: (this: HTMLDeButtonElement, ev: DeButtonCustomEvent<HTMLDeButtonElementEventMap[K]>) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): void;
     }
     var HTMLDeButtonElement: {
         prototype: HTMLDeButtonElement;
@@ -77,6 +92,7 @@ declare namespace LocalJSX {
         "heading"?: string;
     }
     interface DeButton {
+        "onTripleClick"?: (event: DeButtonCustomEvent<MouseEvent>) => void;
         /**
           * @default 'md'
          */

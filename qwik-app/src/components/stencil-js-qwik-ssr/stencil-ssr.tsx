@@ -1,4 +1,5 @@
 import {
+  $,
   component$,
   isBrowser,
   isServer,
@@ -6,6 +7,8 @@ import {
   Slot,
   SSRRaw,
   SSRStream,
+  useId,
+  useOnDocument,
   useSignal,
   useTask$,
 } from '@builder.io/qwik';
@@ -15,6 +18,22 @@ import type { StencilRenderToString, StencilSSRProps } from './model';
 import { collectStencilSsrStyles, createStencilSsrStyleStore } from './styles-core';
 
 const INLINE_EMITTED_KEY = '__stencil_ssr_inline_emitted__';
+const EVENT_QRL_IDS = new WeakMap<object, number>();
+let eventQrlIdCounter = 0;
+
+function getEventQrlId(qrl: unknown): number {
+  if (!qrl || (typeof qrl !== 'object' && typeof qrl !== 'function')) {
+    return -1;
+  }
+  const qrlObj = qrl as object;
+  const existing = EVENT_QRL_IDS.get(qrlObj);
+  if (existing) {
+    return existing;
+  }
+  const next = ++eventQrlIdCounter;
+  EVENT_QRL_IDS.set(qrlObj, next);
+  return next;
+}
 
 /**
  * Retrieves or creates a request-scoped set of emitted style keys.
@@ -66,6 +85,38 @@ const DEFAULT_SLOT_MARKER = '<!--SLOT-->';
 function namedSlotMarker(name: string) {
   return `<!--SLOT:${name}-->`;
 }
+
+function getStencilElement(
+  wrapper: HTMLDivElement | undefined,
+  tagName: string,
+) {
+  return wrapper?.querySelector<HTMLElement>(tagName);
+}
+
+function getWrapperElement(wrapperId: string): HTMLDivElement | undefined {
+  if (!isBrowser) return undefined;
+  return document.querySelector<HTMLDivElement>(`[data-stencil-wrapper-id="${wrapperId}"]`) ?? undefined;
+}
+
+function getEventEntries(events: StencilSSRProps['events']) {
+  return Object.entries(events ?? {}).filter(
+    ([eventName, eventQrl]) => eventName.trim().length > 0 && Boolean(eventQrl),
+  );
+}
+
+function getEventsDependencyKey(events: StencilSSRProps['events']): string {
+  return getEventEntries(events)
+    .map(([eventName, eventQrl]) => {
+      return `${eventName}:${getEventQrlId(eventQrl)}`;
+    })
+    .sort()
+    .join('|');
+}
+
+type EventQrlInternal = QRL<(...args: any[]) => void> & {
+  getFn?: (args?: unknown[], guard?: () => boolean) => (...args: any[]) => Promise<unknown>;
+  $setContainer$?: (containerEl: Element) => void;
+};
 
 /**
  * Builds the HTML string passed to Stencil's renderToString.
@@ -125,22 +176,86 @@ export function createStencilSSRComponent(
     >;
   },
 ) {
-  return component$<StencilSSRProps>(({ tagName, props, slots, ...restProps }) => {
+  return component$<StencilSSRProps>(({ tagName, props, events, slots, ...restProps }) => {
     const wrapperRef = useSignal<HTMLDivElement | undefined>(undefined);
+    const clientReady = useSignal(false);
+    const wrapperId = useId();
     const namedSlots = slots ?? [];
+
+    const markClientReady$ = $(() => {
+      clientReady.value = true;
+    });
+
+    useOnDocument('qinit', markClientReady$);
 
     // Keeps the Stencil element's props in sync with Qwik signals on the client.
     // On the server, props are applied via `beforeHydrate` inside the SSRStream.
     useTask$(({ track }) => {
       const trackedProps = track(() => props);
       if (!isBrowser) return;
-      const stencilEl = wrapperRef.value?.querySelector(tagName);
+      const wrapper = getWrapperElement(wrapperId) ?? wrapperRef.value;
+      const stencilEl = getStencilElement(wrapper, tagName);
       updateStencilElementProps(stencilEl, trackedProps);
+    });
+
+    useTask$(({ cleanup, track }) => {
+      const ready = track(() => clientReady.value);
+      const eventsDependencyKey = track(() => getEventsDependencyKey(events));
+      if (!isBrowser || !ready) return;
+
+      const wrapper = getWrapperElement(wrapperId) ?? wrapperRef.value;
+      const stencilEl = getStencilElement(wrapper, tagName);
+      const eventEntries = getEventEntries(events);
+      if (!stencilEl || eventEntries.length === 0) {
+        return;
+      }
+
+      if (eventsDependencyKey.length === 0) {
+        return;
+      }
+
+      let disposed = false;
+      const listeners: Array<{ eventName: string; listener: EventListener }> = [];
+
+      cleanup(() => {
+        disposed = true;
+        for (const { eventName, listener } of listeners) {
+          stencilEl.removeEventListener(eventName, listener);
+        }
+      });
+
+      for (const [eventName, eventQrl] of eventEntries) {
+        const listener: EventListener = (event) => {
+          const qrl = eventQrl as EventQrlInternal;
+          const containerEl = stencilEl.closest('[q\\:container]');
+          if (containerEl) {
+            qrl.$setContainer$?.(containerEl);
+          }
+
+          const result = eventQrl(event, stencilEl);
+
+          void Promise.resolve(result).catch((error) => {
+            console.error(error);
+          });
+        };
+
+        if (disposed) {
+          return;
+        }
+
+        stencilEl.addEventListener(eventName, listener);
+        listeners.push({ eventName, listener });
+      }
     });
 
     if (isServer) {
       return (
-        <div ref={wrapperRef} {...restProps} style={{ display: 'contents' }}>
+        <div
+          ref={wrapperRef}
+          data-stencil-wrapper-id={wrapperId}
+          {...restProps}
+          style={{ display: 'contents' }}
+        >
           <SSRStream>
             {async function* () {
               const renderToString = await stencilRenderToStringQrl.resolve();
@@ -208,7 +323,12 @@ export function createStencilSSRComponent(
     // On the client, Stencil upgrades the custom element and handles
     // rendering. Qwik projects default and named children via <Slot />.
     return (
-      <div ref={wrapperRef} {...restProps} style={{ display: 'contents' }}>
+      <div
+        ref={wrapperRef}
+        data-stencil-wrapper-id={wrapperId}
+        {...restProps}
+        style={{ display: 'contents' }}
+      >
         <Slot />
         {namedSlots.map((name) => (
           <Slot name={name} key={name} />

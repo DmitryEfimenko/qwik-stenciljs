@@ -66,6 +66,9 @@ These are confirmed findings that future agents should not need to rediscover.
 38. For Qwik event wiring, forwarding on* and $* props from the wrapper props bag is best centralized in createStencilSSRComponent; this keeps generated wrappers smaller and lets Qwik attach listeners declaratively on the bridge root while Stencil element props continue through the existing update path.
 39. Interactive validation is now complete: user-confirmed click handling works on the dev server after centralized event forwarding, while SSR output and named slot projection remained intact.
 40. The last user-confirmed working interaction fix was wrapper-level splitting of on* and $* props in generated wrappers, passing only element props through the props bag and forwarding event props directly on GeneratedStencilComponent; later shared-bridge experiments regressed runtime behavior and should not replace that path without fresh verification.
+41. Item 17 runtime handling now wires events map listeners in createStencilSSRComponent with explicit client-ready gating (no useVisibleTask$), listener cleanup on rerender/unmount, and listener attachment on the Stencil custom element rather than the wrapper.
+42. Validation for event-map handler replacement should ensure alternate QRL callbacks are serialized in the test route; in this workspace the hidden warmup handler references on /stencil-events avoid false negatives when switching mapped handlers after resume.
+43. Item 18 wrapper emission now builds an events map keyed by normalized Stencil event name and only includes entries when the corresponding onEvent$ prop is provided, passing mappedEvents to GeneratedStencilComponent while keeping non-event metadata components on events={undefined}.
 
 ## Execution Order
 
@@ -447,6 +450,58 @@ Verification steps:
 2. Run the generator and inspect output.
 3. Swap route usage to generated wrappers.
 4. Run the app and verify de-button and de-alert behavior.
+
+### Item 17: Implement runtime handling for Stencil events map
+
+State: done
+
+Description:
+
+Update createStencilSSRComponent in qwik-app/src/components/stencil-js-qwik-ssr/stencil-ssr.tsx to consume the events prop from qwik-app/src/components/stencil-js-qwik-ssr/model.ts as a key-value map of Stencil event name to QRL callback. For each event key present in the map, the runtime bridge should invoke the mapped QRL when that Stencil event fires on the rendered custom element.
+
+Constraints and implementation guidance:
+
+1. Do not change the wrapper style using display: contents.
+2. Do not use useVisibleTask$ for the primary solution because the wrapper is not visibility-observable in this setup.
+3. Do not assume a one-time useTask$ run from SSR is sufficient; follow Qwik task guidance and choose a client-capable tracked trigger so listener wiring runs after resume.
+4. Attach listeners to the Stencil custom element, not to the wrapper div.
+5. Define cleanup behavior for listener replacement and component teardown.
+
+Acceptance criteria:
+
+1. The events map is read by createStencilSSRComponent and each event key invokes its mapped QRL callback.
+2. SSR output, slot projection, and prop synchronization continue to work unchanged.
+3. The solution preserves display: contents and does not depend on useVisibleTask$.
+4. Listener attachment and cleanup are defined for rerenders and unmounts.
+
+Verification steps:
+
+1. Validate on an SSR-rendered route that a Stencil custom event invokes the mapped QRL callback in the browser.
+2. Validate that multiple component instances keep event listeners isolated.
+3. Validate that rerendering with changed events map entries replaces listeners correctly.
+4. Validate that named slots and non-event props continue to behave as before.
+
+### Item 18: Update wrapper generation to emit and pass events map
+
+State: done
+
+Description:
+
+Update the generator so emitted Qwik wrappers construct and pass the events prop expected by Item 17. Generated wrappers should continue to expose typed onEvent$ props from metadata, but now translate those props into an events map of Stencil event name to QRL callback for the shared runtime bridge.
+
+Acceptance criteria:
+
+1. Generated wrappers pass events as Record<string, QRL<(...args: any[]) => void>>, not as an array or string list.
+2. Event names come from normalized metadata when available and map to the correct generated onEvent$ prop names.
+3. Components without event metadata continue to compile and preserve graceful degraded behavior.
+4. Existing wrapper prop typing remains valid and does not overstate unsupported event detail types.
+
+Verification steps:
+
+1. Regenerate wrappers and inspect a component with event metadata to confirm it passes an events map.
+2. Regenerate wrappers for a component without event metadata and confirm no invalid events map is emitted.
+3. Run app type-check, generated wrapper type-check, and lint after regeneration.
+4. Verify the generated wrapper path works end-to-end with the runtime event handling from Item 17.
 
 ## Deferred Work
 
